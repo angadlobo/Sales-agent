@@ -1,0 +1,15 @@
+# Core
+anthropic>=0.69.0
+pydantic>=2.6
+python-dotenv>=1.0
+PyYAML>=6.0
+
+# Email outreach
+# (SMTP uses the Python standard library; nothing extra required)
+
+# Voice outreach (optional — only needed if you enable AI phone calls)
+twilio>=9.0
+flask>=3.0
+
+# CLI niceties
+rich>=13.7
