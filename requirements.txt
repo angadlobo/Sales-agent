@@ -1,0 +1,15 @@
+# Core
+anthropic>=0.69.0
+pydantic>=2.6
+python-dotenv>=1.0
+PyYAML>=6.0
+
+# Web UI + voice webhook server
+flask>=3.0
+
+# CLI niceties
+rich>=13.7
+
+# Email uses the Python standard library (smtplib) — nothing extra needed.
+# Phone calls (Twilio/SignalWire) use their plain REST API — no SDK needed.
+# The free browser-voice demo needs nothing beyond Flask + a Chrome/Edge browser.

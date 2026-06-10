@@ -1,0 +1,29 @@
+# Copy to config.yaml and edit. Anything here can also be passed on the CLI.
+
+# What you are selling
+product:
+  name: "Acme Field Service Software"
+  description: >
+    Cloud scheduling, dispatch, and invoicing software for small HVAC,
+    plumbing, and electrical contractors. Cuts admin time and gets
+    technicians to jobs faster.
+  price_point: "$99/month per technician"
+  ideal_customer: >
+    Owner-operated home-services companies with 3-30 technicians that
+    still schedule jobs by phone, paper, or spreadsheet.
+  value_props:
+    - "Reduce no-show jobs with automated SMS reminders"
+    - "Get paid faster with in-app card payments"
+    - "See every technician's location in real time"
+
+# Where to look
+targeting:
+  location: "Austin, Texas"
+  industry: "HVAC and plumbing contractors"
+  max_leads: 15
+
+# How aggressive to be
+campaign:
+  min_score_to_contact: 65   # 0-100; only contact leads scoring at/above this
+  channels: ["email"]        # any of: email, voice
+  daily_send_limit: 50
