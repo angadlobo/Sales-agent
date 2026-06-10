@@ -1,0 +1,16 @@
+# Extra dependencies for self-hosted phone calls (free, local STT/TTS).
+# Install on the machine running sales_agent.outreach.selfhosted.server:
+#
+#     pip install -r requirements-selfhosted.txt
+#
+# Plus one system package for the fallback TTS voice:
+#     apt install espeak-ng        (or set PIPER_VOICE to a Piper model instead)
+#
+# Note: the audio code uses the stdlib `audioop` module (Python <= 3.12).
+# On Python 3.13+ also: pip install audioop-lts
+
+faster-whisper>=1.0
+numpy>=1.26
+
+# Optional, better-sounding TTS than espeak-ng:
+# piper-tts>=1.2

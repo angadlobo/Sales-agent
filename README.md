@@ -131,14 +131,16 @@ minute), but these get you close:
 
 | Provider | Cost to start | Notes |
 |---|---|---|
-| [Twilio](https://www.twilio.com) | Free trial credit | Most popular; trial calls play a notice & only dial verified numbers |
-| [SignalWire](https://signalwire.com) | Free trial credit | Same API shape as Twilio (supported here via `VOICE_PROVIDER=signalwire`); cheaper per-minute |
-| [Telnyx](https://telnyx.com) / [Plivo](https://www.plivo.com) / [Vonage](https://www.vonage.com) | Trial credit | Similar offerings; would need a small dialer tweak |
-| Self-hosted [Asterisk](https://www.asterisk.org)/[FreeSWITCH](https://signalwire.com/freeswitch) | Software free | You still pay a SIP trunk per minute; much more setup |
+| **Self-hosted** (`VOICE_PROVIDER=selfhosted`) | Software $0; SIP trunk ~$1/mo + ~$0.01/min | Asterisk + local Whisper STT + Piper TTS, all open source — **[full guide](docs/SELF_HOSTED_CALLS.md)**. Cheapest per-minute by far; no public webhook needed |
+| [Twilio](https://www.twilio.com) (`VOICE_PROVIDER=twilio`) | Free trial credit | Easiest cloud option; trial calls play a notice & only dial verified numbers |
+| [SignalWire](https://signalwire.com) (`VOICE_PROVIDER=signalwire`) | Free trial credit | Same API shape as Twilio; cheaper per-minute |
+| [Telnyx](https://telnyx.com) / [Plivo](https://www.plivo.com) / [Vonage](https://www.vonage.com) | Trial credit | Similar cloud offerings; would need a small dialer tweak |
 
-This project supports **Twilio and SignalWire out of the box** — both speak
-the same REST API, so we call it directly over HTTP (no SDK needed). Pick one
-with `VOICE_PROVIDER` in `.env`.
+All three named providers work out of the box — pick with `VOICE_PROVIDER` in
+`.env`. The cloud ones are called via plain REST (no SDK); the self-hosted one
+runs entirely on your machine except the trunk: see
+**[docs/SELF_HOSTED_CALLS.md](docs/SELF_HOSTED_CALLS.md)** for the ~15-minute
+setup (Asterisk configs are templated in `deploy/asterisk/`).
 
 ```bash
 # 1. Set VOICE_PROVIDER + VOICE_* (and SIGNALWIRE_SPACE_URL if signalwire) in .env
@@ -163,7 +165,7 @@ any opt-out.
 | Browser-voice demo | Free (browser's own speech engine) |
 | Email outreach | Free with Gmail SMTP + app password (within Gmail's daily limits) |
 | Lead discovery / scoring | Claude API usage (pay per token; web search included) |
-| Real phone calls | Trial credit on Twilio/SignalWire, then per-minute |
+| Real phone calls | Trial credit on Twilio/SignalWire, then per-minute — or self-host: $0 software, ~$0.01/min trunk only |
 
 ---
 
@@ -205,8 +207,9 @@ sales_agent/
   cli.py               # command-line interface
   outreach/
     email_outreach.py  # draft + SMTP send
-    voice_outreach.py  # dial via Twilio/SignalWire REST + conversation brain
-    voice_server.py    # Flask webhook for the live phone call
+    voice_outreach.py  # dialer (Twilio/SignalWire/selfhosted) + conversation brain
+    voice_server.py    # Flask webhook for Twilio/SignalWire calls
+    selfhosted/        # free stack: Asterisk AudioSocket + Whisper + Piper
   webapp/
     app.py             # web UI backend (dashboard + free browser-voice API)
     templates/         # index.html (dashboard), talk.html (voice demo)

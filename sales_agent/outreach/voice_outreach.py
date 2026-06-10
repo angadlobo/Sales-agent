@@ -114,13 +114,17 @@ def place_call(
             detail=(
                 "voice provider not configured (set VOICE_PROVIDER plus "
                 "VOICE_ACCOUNT_SID / VOICE_AUTH_TOKEN / VOICE_FROM_NUMBER / "
-                "VOICE_WEBHOOK_BASE_URL; SignalWire also needs SIGNALWIRE_SPACE_URL)"
+                "VOICE_WEBHOOK_BASE_URL; SignalWire also needs SIGNALWIRE_SPACE_URL; "
+                "selfhosted needs SELFHOSTED_VOICE_URL — see docs/SELF_HOSTED_CALLS.md)"
             ),
             body=opener,
         )
 
     try:
-        sid = _rest_dial(settings, lead)
+        if settings.voice.provider == "selfhosted":
+            sid = _selfhosted_dial(settings, lead)
+        else:
+            sid = _rest_dial(settings, lead)
     except Exception as exc:  # noqa: BLE001
         logger.exception("%s dial failed for %s", settings.voice.provider, lead.phone)
         return OutreachResult(
@@ -136,6 +140,29 @@ def place_call(
         detail=f"call placed (sid={sid})",
         body=opener,
     )
+
+
+def _selfhosted_dial(settings: Settings, lead: Lead) -> str:
+    """Start a call through the self-hosted voice server (see outreach/selfhosted/)."""
+    import json
+    import urllib.request
+
+    url = settings.voice.selfhosted_url.rstrip("/") + "/call"
+    payload = json.dumps(
+        {
+            "phone": normalize_phone(lead.phone),
+            "company": lead.company_name,
+            "contact_name": lead.contact_name,
+        }
+    ).encode()
+    req = urllib.request.Request(
+        url, data=payload, headers={"Content-Type": "application/json"}, method="POST"
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        data = json.loads(resp.read().decode())
+    if "error" in data:
+        raise RuntimeError(data["error"])
+    return data.get("call_id", "unknown")
 
 
 def _rest_dial(settings: Settings, lead: Lead) -> str:

@@ -53,9 +53,12 @@ def _env_first(*names: str) -> Optional[str]:
 class VoiceConfig:
     """Telephony provider for AI phone calls.
 
-    Supported providers (both expose the same 2010-04-01 REST API shape):
-      - twilio      https://api.twilio.com
-      - signalwire  https://<your-space>.signalwire.com (set SIGNALWIRE_SPACE_URL)
+    Supported providers:
+      - twilio      https://api.twilio.com (2010-04-01 REST API)
+      - signalwire  https://<your-space>.signalwire.com (same API shape;
+                    set SIGNALWIRE_SPACE_URL)
+      - selfhosted  your own Asterisk + Whisper + Piper stack — free software,
+                    only a SIP trunk costs money. See docs/SELF_HOSTED_CALLS.md.
 
     No phone provider is needed for the free browser-voice mode in the web UI.
     """
@@ -76,6 +79,9 @@ class VoiceConfig:
     webhook_base_url: Optional[str] = field(
         default_factory=lambda: os.getenv("VOICE_WEBHOOK_BASE_URL")
     )
+    selfhosted_url: str = field(
+        default_factory=lambda: os.getenv("SELFHOSTED_VOICE_URL", "http://127.0.0.1:9091")
+    )
 
     @property
     def api_base(self) -> Optional[str]:
@@ -90,6 +96,9 @@ class VoiceConfig:
 
     @property
     def is_configured(self) -> bool:
+        if self.provider == "selfhosted":
+            # The self-hosted server holds the ARI/trunk credentials itself.
+            return bool(self.selfhosted_url)
         return all(
             [self.account_sid, self.auth_token, self.from_number, self.webhook_base_url, self.api_base]
         )
