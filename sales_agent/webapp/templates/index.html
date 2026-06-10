@@ -5,148 +5,685 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sales Agent</title>
 <style>
-  :root { --bg:#0f1217; --card:#171c24; --ink:#e8ebf0; --mut:#8b94a3; --acc:#4f8cff; --ok:#3ecf8e; --warn:#f5b14c; --bad:#e5645f; }
+  :root { --bg:#0f1217; --card:#171c24; --ink:#e8ebf0; --mut:#8b94a3; --acc:#4f8cff; --acc2:#7b5cff; --ok:#3ecf8e; --warn:#f5b14c; --bad:#e5645f; --line:#232a35; --field:#0f141b; --fieldline:#2c3543; }
   * { box-sizing:border-box; }
   body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
-  header { display:flex; align-items:center; gap:14px; padding:18px 28px; border-bottom:1px solid #232a35; }
-  header h1 { font-size:18px; margin:0; }
-  header a { color:var(--acc); text-decoration:none; margin-left:auto; }
-  main { max-width:1100px; margin:0 auto; padding:24px 20px 80px; }
-  .grid { display:grid; grid-template-columns:380px 1fr; gap:20px; }
-  @media (max-width:900px){ .grid{grid-template-columns:1fr;} }
-  .card { background:var(--card); border:1px solid #232a35; border-radius:12px; padding:18px; }
-  label { display:block; font-size:12px; color:var(--mut); margin:12px 0 4px; }
-  input, textarea, select { width:100%; padding:8px 10px; border-radius:8px; border:1px solid #2c3543; background:#0f141b; color:var(--ink); font:inherit; }
+  header { display:flex; align-items:center; gap:14px; padding:14px 28px; border-bottom:1px solid var(--line); position:sticky; top:0; background:rgba(15,18,23,.92); backdrop-filter:blur(8px); z-index:5; }
+  header h1 { font-size:18px; margin:0; background:linear-gradient(90deg,var(--acc),var(--acc2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  header .spacer { margin-left:auto; }
+  header a, header button.link { color:var(--acc); text-decoration:none; background:none; border:0; font:inherit; cursor:pointer; padding:4px 8px; border-radius:6px; }
+  header a:hover, header button.link:hover { background:#1d2530; }
+  main { max-width:1100px; margin:0 auto; padding:22px 20px 80px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:24px; box-shadow:0 4px 24px rgba(0,0,0,.25); }
+  .card > strong { font-size:15px; }
+  label { display:block; font-size:12px; color:var(--mut); margin:14px 0 4px; letter-spacing:.02em; }
+  input, textarea, select { width:100%; padding:9px 11px; border-radius:8px; border:1px solid var(--fieldline); background:var(--field); color:var(--ink); font:inherit; transition:border-color .15s, box-shadow .15s; }
+  input:focus, textarea:focus, select:focus { outline:none; border-color:var(--acc); box-shadow:0 0 0 3px rgba(79,140,255,.18); }
   textarea { resize:vertical; }
-  .row { display:flex; gap:10px; } .row > div { flex:1; }
-  button { margin-top:16px; width:100%; padding:11px; border:0; border-radius:8px; background:var(--acc); color:#fff; font-weight:600; font-size:14px; cursor:pointer; }
-  button:disabled { opacity:.5; cursor:wait; }
-  .check { display:flex; align-items:center; gap:8px; margin-top:12px; font-size:13px; color:var(--mut); }
+  .row { display:flex; gap:12px; flex-wrap:wrap; } .row > div { flex:1; min-width:140px; }
+  button.btn { padding:10px 16px; border:0; border-radius:8px; background:var(--acc); color:#fff; font-weight:600; font-size:14px; cursor:pointer; transition:filter .15s, transform .05s; }
+  button.btn:hover:not(:disabled) { filter:brightness(1.12); }
+  button.btn:active:not(:disabled) { transform:translateY(1px); }
+  button.btn.ghost { background:#1d2530; color:var(--ink); border:1px solid var(--fieldline); }
+  button.btn.ok { background:var(--ok); color:#06301f; }
+  button.btn:disabled { opacity:.5; cursor:not-allowed; }
+  .actions { display:flex; gap:10px; margin-top:22px; align-items:center; }
+  .actions .spacer { margin-left:auto; }
+  .check { display:flex; align-items:center; gap:8px; margin-top:14px; font-size:13px; color:var(--mut); }
   .check input { width:auto; }
-  .status { margin-top:12px; font-size:13px; color:var(--mut); min-height:18px; }
+  .status { margin-top:14px; font-size:13px; color:var(--mut); min-height:18px; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:99px; font-size:11px; background:#232a35; color:var(--mut); }
+  .pill.ok{ background:#123524; color:var(--ok);} .pill.warn{ background:#3a2c10; color:var(--warn);} .pill.bad{ background:#3a1716; color:var(--bad);}
+
+  /* stepper */
+  .stepper { display:flex; gap:8px; margin-bottom:22px; flex-wrap:wrap; }
+  .step { display:flex; align-items:center; gap:8px; padding:8px 14px; border-radius:99px; border:1px solid var(--line); font-size:13px; color:var(--mut); cursor:default; }
+  .step .n { width:20px; height:20px; border-radius:50%; background:#232a35; display:flex; align-items:center; justify-content:center; font-size:11px; }
+  .step.active { border-color:var(--acc); color:var(--ink); background:rgba(79,140,255,.08); }
+  .step.active .n { background:var(--acc); color:#fff; }
+  .step.done .n { background:var(--ok); color:#06301f; }
+
+  /* segmented control (product / service / both) */
+  .seg { display:inline-flex; border:1px solid var(--fieldline); border-radius:9px; overflow:hidden; margin-top:2px; }
+  .seg button { padding:8px 16px; border:0; background:var(--field); color:var(--mut); font:inherit; font-size:13px; cursor:pointer; border-right:1px solid var(--fieldline); }
+  .seg button:last-child { border-right:0; }
+  .seg button.active { background:rgba(79,140,255,.18); color:var(--ink); font-weight:600; }
+
+  /* multi-select industry picker */
+  .picker { position:relative; }
+  .picker-box { display:flex; flex-wrap:wrap; gap:6px; padding:7px 9px; border:1px solid var(--fieldline); border-radius:8px; background:var(--field); cursor:text; min-height:42px; transition:border-color .15s, box-shadow .15s; }
+  .picker-box.focus { border-color:var(--acc); box-shadow:0 0 0 3px rgba(79,140,255,.18); }
+  .chip { display:inline-flex; align-items:center; gap:6px; padding:4px 6px 4px 10px; border-radius:99px; background:rgba(79,140,255,.16); border:1px solid rgba(79,140,255,.35); color:var(--ink); font-size:12.5px; }
+  .chip.any { background:rgba(62,207,142,.14); border-color:rgba(62,207,142,.4); }
+  .chip.custom { background:rgba(123,92,255,.16); border-color:rgba(123,92,255,.4); }
+  .chip button { border:0; background:none; color:var(--mut); cursor:pointer; font-size:14px; line-height:1; padding:0 4px; border-radius:50%; }
+  .chip button:hover { color:var(--bad); }
+  .picker-box input { flex:1; min-width:130px; border:0; background:none; padding:4px 2px; box-shadow:none !important; }
+  .picker-menu { position:absolute; top:calc(100% + 6px); left:0; right:0; max-height:320px; overflow:auto; background:#131822; border:1px solid var(--fieldline); border-radius:10px; z-index:10; display:none; box-shadow:0 12px 32px rgba(0,0,0,.45); }
+  .picker-menu.open { display:block; }
+  .picker-menu .group { padding:8px 12px 3px; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); position:sticky; top:0; background:#131822; }
+  .picker-menu .opt { padding:7px 12px; font-size:13.5px; cursor:pointer; display:flex; align-items:center; gap:8px; }
+  .picker-menu .opt:hover, .picker-menu .opt.hl { background:#1b2330; }
+  .picker-menu .opt .tick { width:16px; color:var(--ok); flex:none; }
+  .picker-menu .opt.special { color:var(--ok); font-weight:600; border-bottom:1px solid var(--line); }
+  .picker-menu .opt.addnew { color:var(--acc2); font-weight:600; border-bottom:1px solid var(--line); }
+  .picker-menu .nores { padding:12px; font-size:13px; color:var(--mut); }
+
   table { width:100%; border-collapse:collapse; font-size:13px; }
-  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #232a35; vertical-align:top; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
   th { color:var(--mut); font-weight:500; font-size:12px; }
+  tbody tr:hover { background:#151b25; }
+  tr.sel { background:#141d2b !important; }
   .score { font-weight:700; }
   .s-hi{color:var(--ok)} .s-mid{color:var(--warn)} .s-lo{color:var(--mut)}
   details { margin-top:4px; } summary { cursor:pointer; color:var(--acc); font-size:12px; }
-  pre { white-space:pre-wrap; background:#0f141b; border:1px solid #2c3543; border-radius:8px; padding:10px; font-size:12px; color:#c7cdd6; }
-  .pill { display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px; background:#232a35; color:var(--mut); margin-right:4px; }
+  pre { white-space:pre-wrap; background:var(--field); border:1px solid var(--fieldline); border-radius:8px; padding:10px; font-size:12px; color:#c7cdd6; margin:6px 0 0; }
   .empty { color:var(--mut); font-size:14px; padding:40px 0; text-align:center; }
-  .banner { background:#1d2530; border:1px solid #2c3543; border-radius:8px; padding:10px 12px; font-size:12.5px; color:var(--mut); margin-bottom:16px; }
+  .banner { background:linear-gradient(135deg,#1d2530,#1a2030); border:1px solid var(--fieldline); border-radius:10px; padding:12px 14px; font-size:12.5px; color:var(--mut); margin-bottom:18px; line-height:1.55; }
+  .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .toolbar .count { font-size:13px; color:var(--mut); }
+  small.mut { color:var(--mut); }
+  .hint { font-size:12px; color:var(--mut); margin-top:6px; line-height:1.5; }
+
+  /* modal */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:flex-start; justify-content:center; z-index:20; padding:40px 16px; overflow:auto; }
+  .overlay.show { display:flex; }
+  .modal { background:var(--card); border:1px solid var(--line); border-radius:14px; width:100%; max-width:560px; padding:22px; }
+  .modal.wide { max-width:760px; }
+  .modal h2 { margin:0 0 4px; font-size:18px; }
+  .tabs { display:flex; gap:6px; margin:16px 0 6px; }
+  .tabs button { flex:1; padding:8px; border:1px solid var(--fieldline); background:var(--field); color:var(--mut); border-radius:8px; cursor:pointer; font:inherit; }
+  .tabs button.active { color:var(--ink); border-color:var(--acc); }
+  .tabpane { display:none; } .tabpane.active { display:block; }
+  .close { float:right; background:none; border:0; color:var(--mut); font-size:22px; cursor:pointer; line-height:1; }
+
+  /* history feed */
+  .feed { margin-top:14px; max-height:60vh; overflow:auto; display:flex; flex-direction:column; gap:8px; }
+  .ev { display:flex; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--field); font-size:13px; }
+  .ev .ico { flex:none; font-size:16px; }
+  .ev .when { color:var(--mut); font-size:11.5px; margin-top:2px; }
+  .ev .what b { font-weight:600; }
+  .ev .what { line-height:1.45; }
 </style>
 </head>
 <body>
 <header>
   <h1>🤖 Sales Agent</h1>
   <span class="pill">dry-run by default</span>
-  <a href="/talk">🎙 Talk to the agent (free voice demo) →</a>
+  <span class="spacer"></span>
+  <button class="link" id="openHistory">📜 History</button>
+  <button class="link" id="openSettings">⚙ Settings</button>
+  <a href="/talk">🎙 Talk to the agent →</a>
 </header>
+
 <main>
   <div class="banner">
-    The agent searches the web for businesses matching your target, scores how likely each is to buy,
-    finds published contact details, and drafts outreach. Nothing is sent unless you tick “actually send”.
+    Step through it: describe the product or service you sell, choose who to target, let the agent find &amp; score
+    real leads, then pick the ones you like and email or call them. Every search, email and call is recorded in
+    <b>History</b>. Nothing goes out unless you explicitly choose to send.
   </div>
-  <div class="grid">
-    <div class="card">
-      <strong>Campaign</strong>
-      <label>Product / service name</label>
-      <input id="product_name" placeholder="Acme CRM">
-      <label>What does it do? *</label>
-      <textarea id="product_description" rows="3" placeholder="Simple CRM for small law firms…"></textarea>
-      <label>Ideal customer</label>
-      <input id="ideal_customer" placeholder="Owner-run firms with 2–20 attorneys">
-      <label>Value props (one per line)</label>
-      <textarea id="value_props" rows="2" placeholder="Saves 5 hrs/week on intake"></textarea>
-      <div class="row">
-        <div><label>Location</label><input id="location" placeholder="Denver, CO"></div>
-        <div><label>Industry</label><input id="industry" placeholder="law firms"></div>
-      </div>
-      <div class="row">
-        <div><label>Max leads</label><input id="max_leads" type="number" value="8" min="1" max="50"></div>
-        <div><label>Min score to contact</label><input id="min_score" type="number" value="65" min="0" max="100"></div>
-        <div><label>Price point</label><input id="price_point" placeholder="$99/mo"></div>
-      </div>
-      <label>Channels</label>
-      <select id="channels">
-        <option value="email">email</option>
-        <option value="voice">voice (phone)</option>
-        <option value="email,voice">email + voice</option>
-      </select>
-      <div class="check">
-        <input type="checkbox" id="send">
-        <span>Actually send / dial (off = draft only). Read the README's legal section first.</span>
-      </div>
-      <button id="run">Run campaign</button>
-      <div class="status" id="status"></div>
-    </div>
-    <div class="card">
-      <strong>Results</strong>
-      <div id="results"><div class="empty">Run a campaign to see scored leads here.<br>Takes a few minutes — the agent is searching the web.</div></div>
-    </div>
+
+  <div class="stepper" id="stepper">
+    <div class="step active" data-step="1"><span class="n">1</span> Product / Service</div>
+    <div class="step" data-step="2"><span class="n">2</span> Targeting</div>
+    <div class="step" data-step="3"><span class="n">3</span> Discover</div>
+    <div class="step" data-step="4"><span class="n">4</span> Reach out</div>
   </div>
+
+  <!-- Step 1: Product / service -->
+  <section class="card pane" data-pane="1">
+    <strong>What are you selling?</strong>
+    <label>I'm selling a…</label>
+    <div class="seg" id="offeringSeg">
+      <button data-val="product">📦 Product</button>
+      <button data-val="service">🛠 Service</button>
+      <button data-val="product & service" class="active">📦+🛠 Both</button>
+    </div>
+    <label>Product / service name</label>
+    <input id="product_name" placeholder="Acme CRM, lawn care plan, consulting package…">
+    <label>What does it do? *</label>
+    <textarea id="product_description" rows="3" placeholder="Simple CRM for small law firms… / Weekly bookkeeping done for you…"></textarea>
+    <label>Ideal customer</label>
+    <input id="ideal_customer" placeholder="Owner-run firms with 2–20 attorneys">
+    <label>Value props (one per line)</label>
+    <textarea id="value_props" rows="2" placeholder="Saves 5 hrs/week on intake&#10;Replaces 3 tools"></textarea>
+    <label>Pricing</label>
+    <div class="seg" id="priceSeg">
+      <button data-val="fixed" class="active">💲 Set price</button>
+      <button data-val="varies">🔀 It varies</button>
+    </div>
+    <input id="price_point" placeholder="$99/mo, $1,500 per project…" style="margin-top:10px">
+    <div class="hint" id="priceHint">Enter your price — monthly, per project, per seat, whatever fits.</div>
+    <div class="actions">
+      <span class="spacer"></span>
+      <button class="btn" data-next="2">Next: Targeting →</button>
+    </div>
+  </section>
+
+  <!-- Step 2: Targeting -->
+  <section class="card pane" data-pane="2" style="display:none">
+    <strong>Who should we look for?</strong>
+    <label>Business types / industries — pick as many as you like</label>
+    <div class="picker" id="indPicker">
+      <div class="picker-box" id="indBox">
+        <input id="indSearch" placeholder="Search industries, or type your own and press Enter…" autocomplete="off">
+      </div>
+      <div class="picker-menu" id="indMenu"></div>
+    </div>
+    <div class="hint">
+      Pick several, choose <b style="color:var(--ok)">Any industry</b> to target everything, or type something
+      that isn't listed and press Enter to add it. Leaving it empty also means any industry.
+    </div>
+    <div class="row" style="margin-top:8px">
+      <div>
+        <label>Location</label>
+        <input id="location" placeholder="Denver, CO — or leave blank for anywhere">
+      </div>
+      <div><label>Max leads</label><input id="max_leads" type="number" value="8" min="1" max="50"></div>
+      <div><label>Min score to contact (0–100)</label><input id="min_score" type="number" value="65" min="0" max="100"></div>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" data-next="1">← Back</button>
+      <span class="spacer"></span>
+      <button class="btn" data-next="3">Next: Review →</button>
+    </div>
+  </section>
+
+  <!-- Step 3: Discover -->
+  <section class="card pane" data-pane="3" style="display:none">
+    <strong>Ready to find leads</strong>
+    <div id="review" class="hint" style="margin-top:12px"></div>
+    <div class="actions">
+      <button class="btn ghost" data-next="2">← Back</button>
+      <span class="spacer"></span>
+      <button class="btn ok" id="runDiscover">🔎 Find &amp; score leads</button>
+    </div>
+    <div class="status" id="discoverStatus"></div>
+  </section>
+
+  <!-- Step 4: Results / outreach -->
+  <section class="card pane" data-pane="4" style="display:none">
+    <div class="toolbar">
+      <strong>Leads</strong>
+      <span class="count" id="selCount">0 selected</span>
+      <span class="spacer" style="margin-left:auto"></span>
+      <button class="btn" id="emailSel">✉ Email selected</button>
+      <button class="btn" id="callSel">📞 Call selected</button>
+      <button class="btn ghost" id="exportCsv">⬇ CSV</button>
+      <button class="btn ghost" id="exportJson">⬇ JSON</button>
+    </div>
+    <label class="check"><input type="checkbox" id="sendForReal"> <span>Actually send / dial (off = draft only). Read the README's legal section first.</span></label>
+    <div class="status" id="outreachStatus"></div>
+    <div id="results" style="margin-top:10px"></div>
+    <div class="actions">
+      <button class="btn ghost" id="startOver">← New campaign</button>
+    </div>
+  </section>
 </main>
+
+<!-- History modal -->
+<div class="overlay" id="historyOverlay">
+  <div class="modal wide">
+    <button class="close" id="closeHistory">×</button>
+    <h2>📜 Activity history</h2>
+    <div class="hint">Everything the agent does is recorded here (and in <code>data/activity.jsonl</code>): searches it runs, emails it drafts or sends, calls it places, and voice-demo conversations.</div>
+    <div class="feed" id="historyFeed"><div class="empty">Loading…</div></div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="overlay" id="settingsOverlay">
+  <div class="modal">
+    <button class="close" id="closeSettings">×</button>
+    <h2>Settings</h2>
+    <div class="hint">Saved to your local <code>.env</code> file, so they persist across restarts.</div>
+    <div class="tabs">
+      <button class="active" data-tab="keys">Claude</button>
+      <button data-tab="email">Email</button>
+      <button data-tab="voice">Voice / phone</button>
+    </div>
+
+    <div class="tabpane active" data-tab="keys">
+      <label>Anthropic API key <span id="keyState" class="pill"></span></label>
+      <input id="cfg_anthropic_key" type="password" placeholder="sk-ant-… (leave blank to keep current)">
+      <div class="hint">Required for discovery, scoring, email drafting and the call brain.</div>
+    </div>
+
+    <div class="tabpane" data-tab="email">
+      <div class="row">
+        <div><label>SMTP host</label><input id="cfg_smtp_host" placeholder="smtp.gmail.com"></div>
+        <div><label>Port</label><input id="cfg_smtp_port" placeholder="587"></div>
+      </div>
+      <label>Username</label><input id="cfg_smtp_username" placeholder="you@company.com">
+      <label>Password / app password <span id="smtpPwState" class="pill"></span></label>
+      <input id="cfg_smtp_password" type="password" placeholder="leave blank to keep current">
+      <div class="row">
+        <div><label>From name</label><input id="cfg_smtp_from_name" placeholder="Your Name"></div>
+        <div><label>From email</label><input id="cfg_smtp_from_email" placeholder="you@company.com"></div>
+      </div>
+      <div class="hint">Any SMTP server works. Gmail needs an app password.</div>
+    </div>
+
+    <div class="tabpane" data-tab="voice">
+      <label>Provider</label>
+      <select id="cfg_voice_provider">
+        <option value="twilio">Twilio</option>
+        <option value="signalwire">SignalWire</option>
+      </select>
+      <label>Account SID</label><input id="cfg_voice_account_sid" placeholder="AC…">
+      <label>Auth token <span id="voiceTokState" class="pill"></span></label>
+      <input id="cfg_voice_auth_token" type="password" placeholder="leave blank to keep current">
+      <label>From number</label><input id="cfg_voice_from_number" placeholder="+15551234567">
+      <div id="signalwireRow" style="display:none">
+        <label>SignalWire space URL</label><input id="cfg_signalwire_space_url" placeholder="yourspace.signalwire.com">
+      </div>
+      <label>Public webhook base URL</label><input id="cfg_voice_webhook_base_url" placeholder="https://your-ngrok-id.ngrok.app">
+      <div class="hint">
+        Twilio &amp; SignalWire are configured entirely here. The webhook server must be reachable publicly
+        (e.g. <code>ngrok http 5000</code>) and that URL goes above.<br>
+        <strong>Self-hosted</strong> telephony (Asterisk / FreeSWITCH) can't be set up from this panel — you
+        configure a SIP trunk on your own server and point the webhook URL at it.
+      </div>
+    </div>
+
+    <div class="actions">
+      <span class="spacer"></span>
+      <button class="btn ghost" id="cancelSettings">Cancel</button>
+      <button class="btn" id="saveSettings">Save</button>
+    </div>
+    <div class="status" id="settingsStatus"></div>
+  </div>
+</div>
+
 <script>
 const $ = id => document.getElementById(id);
+let JOB_ID = null;          // discovery job id
+let RESULTS = [];           // array of QualifiedLead json
+const SELECTED = new Set(); // indexes into RESULTS
 let pollTimer = null;
 
-$("run").onclick = async () => {
-  const payload = {
+function esc(t){ const d=document.createElement("div"); d.textContent=(t==null?"":t); return d.innerHTML; }
+function scoreClass(s){ return s>=65 ? "s-hi" : s>=40 ? "s-mid" : "s-lo"; }
+
+// ── Offering type (product / service / both) ────────────────────────
+let OFFERING = "product & service";
+document.querySelectorAll("#offeringSeg button").forEach(b => b.onclick = () => {
+  OFFERING = b.dataset.val;
+  document.querySelectorAll("#offeringSeg button").forEach(x => x.classList.toggle("active", x===b));
+});
+
+// ── Pricing (fixed price vs. varies / custom quote) ─────────────────
+let PRICING = "fixed";
+document.querySelectorAll("#priceSeg button").forEach(b => b.onclick = () => {
+  PRICING = b.dataset.val;
+  document.querySelectorAll("#priceSeg button").forEach(x => x.classList.toggle("active", x===b));
+  if (PRICING === "varies"){
+    $("price_point").placeholder = "Typical range (optional) — e.g. $500–$5,000 depending on scope";
+    $("priceHint").textContent = "No fixed price needed — the agent will say pricing is tailored per client. Add a typical range if you have one.";
+  } else {
+    $("price_point").placeholder = "$99/mo, $1,500 per project…";
+    $("priceHint").textContent = "Enter your price — monthly, per project, per seat, whatever fits.";
+  }
+});
+function pricePointValue(){
+  const v = $("price_point").value.trim();
+  if (PRICING === "varies") return v ? `Varies — typically ${v}` : "Varies — custom quote per client";
+  return v;
+}
+
+// ── Stepper navigation ───────────────────────────────────────────────
+function goStep(n){
+  document.querySelectorAll(".pane").forEach(p => p.style.display = (+p.dataset.pane===n) ? "" : "none");
+  document.querySelectorAll(".step").forEach(s => {
+    const sn = +s.dataset.step;
+    s.classList.toggle("active", sn===n);
+    s.classList.toggle("done", sn<n);
+  });
+  if (n===3) renderReview();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+document.querySelectorAll("[data-next]").forEach(b => b.onclick = () => {
+  const target = +b.dataset.next;
+  if (target>1 && !$("product_description").value.trim()) { goStep(1); $("product_description").focus(); return; }
+  goStep(target);
+});
+
+function industriesLabel(){
+  if (!INDUSTRIES.length || INDUSTRIES.includes(ANY)) return "any industry";
+  return INDUSTRIES.join(", ");
+}
+function renderReview(){
+  const get = id => $(id).value.trim();
+  const price = pricePointValue();
+  $("review").innerHTML =
+    `<b>${esc(get("product_name")||"(unnamed)")}</b> <span class="pill">${esc(OFFERING)}</span> — ${esc(get("product_description")||"(no description)")}<br>`+
+    (price ? `Pricing: <b>${esc(price)}</b><br>` : "")+
+    `Targeting <b>${esc(industriesLabel())}</b> in <b>${esc(get("location")||"anywhere")}</b>, `+
+    `up to <b>${esc(get("max_leads")||"8")}</b> leads, contacting those scoring ≥ <b>${esc(get("min_score")||"65")}</b>.`;
+}
+
+// ── Multi-select industry picker ─────────────────────────────────────
+const ANY = "Any industry";
+let GROUPS = {};            // category -> [types]
+let ALL_TYPES = new Set();  // for exact-match checks
+let INDUSTRIES = [];        // selected (curated or custom); [ANY] means everything
+
+fetch("/api/business-types").then(r=>r.json()).then(d=>{
+  GROUPS = d.groups || {"All": d.types||[]};
+  ALL_TYPES = new Set(Object.values(GROUPS).flat());
+  renderMenu();
+});
+
+const box = $("indBox"), search = $("indSearch"), menu = $("indMenu");
+
+function setIndustries(list){
+  INDUSTRIES = list;
+  // chips live before the search input inside the box
+  box.querySelectorAll(".chip").forEach(c => c.remove());
+  INDUSTRIES.forEach(name => {
+    const chip = document.createElement("span");
+    chip.className = "chip" + (name===ANY ? " any" : (!ALL_TYPES.has(name) ? " custom" : ""));
+    chip.innerHTML = `${name===ANY?"🌐 ":""}${esc(name)}<button title="remove" data-name="${esc(name)}">×</button>`;
+    chip.querySelector("button").onclick = e => {
+      e.stopPropagation();
+      setIndustries(INDUSTRIES.filter(x => x!==name));
+      renderMenu();
+    };
+    box.insertBefore(chip, search);
+  });
+  search.placeholder = INDUSTRIES.length ? "Add more…" : "Search industries, or type your own and press Enter…";
+}
+
+function toggleIndustry(name){
+  if (name===ANY){
+    setIndustries(INDUSTRIES.includes(ANY) ? [] : [ANY]);            // Any replaces everything
+  } else if (INDUSTRIES.includes(name)){
+    setIndustries(INDUSTRIES.filter(x => x!==name));
+  } else {
+    setIndustries([...INDUSTRIES.filter(x => x!==ANY), name]);       // picking specific drops Any
+  }
+  search.value = "";
+  renderMenu();
+  search.focus();
+}
+
+function renderMenu(){
+  const q = search.value.trim().toLowerCase();
+  let html = "";
+  // Pinned "Any" option
+  html += `<div class="opt special" data-name="${esc(ANY)}"><span class="tick">${INDUSTRIES.includes(ANY)?"✓":""}</span>🌐 Any industry — target all fields</div>`;
+  // Offer to add the typed text as a custom entry when it isn't an exact match
+  if (q && ![...ALL_TYPES].some(t => t.toLowerCase()===q) && !INDUSTRIES.some(t => t.toLowerCase()===q)){
+    html += `<div class="opt addnew" data-add="${esc(search.value.trim())}">＋ Add “${esc(search.value.trim())}” (other)</div>`;
+  }
+  let any = false;
+  for (const [cat, types] of Object.entries(GROUPS)){
+    const hits = q ? types.filter(t => t.toLowerCase().includes(q)) : types;
+    if (!hits.length) continue;
+    any = true;
+    html += `<div class="group">${esc(cat)}</div>`;
+    hits.forEach(t => {
+      const sel = INDUSTRIES.includes(t);
+      html += `<div class="opt" data-name="${esc(t)}"><span class="tick">${sel?"✓":""}</span>${esc(t)}</div>`;
+    });
+  }
+  if (!any && q) html += `<div class="nores">No matches — press Enter to add “${esc(search.value.trim())}” as a custom type.</div>`;
+  menu.innerHTML = html;
+  menu.querySelectorAll(".opt").forEach(o => o.onmousedown = e => {
+    e.preventDefault(); // keep focus in the search box
+    if (o.dataset.add !== undefined) toggleIndustry(o.dataset.add);
+    else toggleIndustry(o.dataset.name);
+  });
+}
+
+function openMenu(){ menu.classList.add("open"); box.classList.add("focus"); renderMenu(); }
+function closeMenu(){ menu.classList.remove("open"); box.classList.remove("focus"); }
+
+box.onclick = () => { search.focus(); };
+search.onfocus = openMenu;
+search.oninput = renderMenu;
+search.onkeydown = e => {
+  if (e.key === "Enter"){
+    e.preventDefault();
+    const q = search.value.trim();
+    if (!q) return;
+    // Exact curated match wins; otherwise first visible suggestion; otherwise add as custom.
+    const exact = [...ALL_TYPES].find(t => t.toLowerCase()===q.toLowerCase());
+    if (exact) return toggleIndustry(exact);
+    const first = menu.querySelector('.opt:not(.special)[data-name]');
+    const filteredCount = menu.querySelectorAll('.opt:not(.special)[data-name]').length;
+    if (first && filteredCount === 1) return toggleIndustry(first.dataset.name);
+    toggleIndustry(q);
+  } else if (e.key === "Backspace" && !search.value && INDUSTRIES.length){
+    setIndustries(INDUSTRIES.slice(0, -1));
+    renderMenu();
+  } else if (e.key === "Escape"){
+    closeMenu(); search.blur();
+  }
+};
+document.addEventListener("click", e => { if (!$("indPicker").contains(e.target)) closeMenu(); });
+
+// ── Step 3: run discovery ───────────────────────────────────────────
+function payloadFromForm(){
+  return {
     product_name: $("product_name").value,
     product_description: $("product_description").value,
+    offering_type: OFFERING,
     ideal_customer: $("ideal_customer").value,
     value_props: $("value_props").value,
-    price_point: $("price_point").value,
+    price_point: pricePointValue(),
     location: $("location").value,
-    industry: $("industry").value,
+    industries: INDUSTRIES,
     max_leads: $("max_leads").value,
     min_score: $("min_score").value,
-    channels: $("channels").value.split(","),
-    send: $("send").checked,
   };
-  if (!payload.product_description.trim()) { $("status").textContent = "Describe your product first."; return; }
-  if (payload.send && !confirm("This will REALLY send emails / place calls. Continue?")) return;
+}
 
-  $("run").disabled = true;
-  $("status").textContent = "Starting…";
-  const res = await fetch("/api/campaign", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+$("runDiscover").onclick = async () => {
+  const payload = payloadFromForm();
+  if (!payload.product_description.trim()) { goStep(1); return; }
+  $("runDiscover").disabled = true;
+  $("discoverStatus").textContent = "Starting… the agent is searching the web (this can take a few minutes).";
+  const res = await fetch("/api/discover", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
   const data = await res.json();
-  if (data.error) { $("status").textContent = "Error: " + data.error; $("run").disabled = false; return; }
-  $("status").textContent = (data.dry_run ? "Dry run — " : "LIVE — ") + "discovering & scoring leads… (this can take a few minutes)";
-  poll(data.job_id);
+  if (data.error){ $("discoverStatus").textContent = "Error: "+data.error; $("runDiscover").disabled=false; return; }
+  JOB_ID = data.job_id;
+  pollDiscovery();
 };
 
-function poll(jobId) {
+function pollDiscovery(){
   clearInterval(pollTimer);
   pollTimer = setInterval(async () => {
-    const res = await fetch("/api/jobs/" + jobId);
-    const job = await res.json();
-    if (job.status === "done") { clearInterval(pollTimer); $("run").disabled = false; $("status").textContent = "Done."; render(job.results); }
-    else if (job.status === "error") { clearInterval(pollTimer); $("run").disabled = false; $("status").textContent = "Failed: " + job.error; }
-  }, 3000);
+    const job = await (await fetch("/api/jobs/"+JOB_ID)).json();
+    if (job.stage) $("discoverStatus").textContent = "Working… "+job.stage;
+    if (job.status==="done"){
+      clearInterval(pollTimer);
+      $("runDiscover").disabled=false;
+      $("discoverStatus").textContent="";
+      RESULTS = job.results||[];
+      SELECTED.clear();
+      goStep(4);
+      renderResults();
+    } else if (job.status==="error"){
+      clearInterval(pollTimer);
+      $("runDiscover").disabled=false;
+      $("discoverStatus").textContent="Failed: "+job.error;
+    }
+  }, 2500);
 }
 
-function scoreClass(s){ return s>=65 ? "s-hi" : s>=40 ? "s-mid" : "s-lo"; }
-function esc(t){ const d=document.createElement("div"); d.textContent=t||""; return d.innerHTML; }
-
-function render(results) {
-  if (!results || !results.length) { $("results").innerHTML = '<div class="empty">No leads found. Try a broader location or industry.</div>'; return; }
-  let html = "<table><tr><th>Score</th><th>Company</th><th>Contact</th><th>Outreach</th></tr>";
-  for (const ql of results) {
+// ── Step 4: results table ───────────────────────────────────────────
+function renderResults(){
+  if (!RESULTS.length){ $("results").innerHTML = '<div class="empty">No leads found. Try a broader location or more industries.</div>'; updateSelCount(); return; }
+  let html = '<table><tr>'+
+    '<th><input type="checkbox" id="selAll"></th><th>Score</th><th>Company</th><th>Contact</th><th>Email</th><th>Phone</th><th>Outreach</th></tr>';
+  RESULTS.forEach((ql, i) => {
     const l = ql.lead, s = ql.score ? ql.score.score : 0;
-    const contact = [l.contact_name, l.email, l.phone].filter(Boolean).map(esc).join("<br>") || "—";
-    let outreach = (ql.outreach||[]).map(o => {
-      let block = `<span class="pill">${esc(o.channel)}: ${esc(o.status)}</span>`;
-      if (o.subject || o.body) block += `<details><summary>view draft</summary><pre>${esc(o.subject ? "Subject: "+o.subject+"\n\n" : "")}${esc(o.body||"")}</pre></details>`;
-      return block;
-    }).join("") || "—";
+    const checked = SELECTED.has(i) ? "checked" : "";
     const reason = ql.score ? `<details><summary>why ${s}?</summary><pre>${esc(ql.score.reasoning)}</pre></details>` : "";
-    html += `<tr><td class="score ${scoreClass(s)}">${s}</td>
-      <td>${esc(l.company_name)}<br><small style="color:var(--mut)">${esc(l.location||"")}</small>${reason}</td>
-      <td>${contact}</td><td>${outreach}</td></tr>`;
-  }
+    const outreach = (ql.outreach||[]).map(o=>{
+      const cls = o.status==="sent" ? "ok" : (o.status==="failed"?"bad":"warn");
+      let b = `<span class="pill ${cls}">${esc(o.channel)}: ${esc(o.status)}</span>`;
+      if (o.subject||o.body) b += `<details><summary>view</summary><pre>${esc(o.subject?("Subject: "+o.subject+"\n\n"):"")}${esc(o.body||"")}</pre></details>`;
+      if (o.detail) b += `<div><small class="mut">${esc(o.detail)}</small></div>`;
+      return b;
+    }).join("") || '<small class="mut">—</small>';
+    html += `<tr class="${checked?'sel':''}">`+
+      `<td><input type="checkbox" class="rowsel" data-i="${i}" ${checked}></td>`+
+      `<td class="score ${scoreClass(s)}">${s}</td>`+
+      `<td>${esc(l.company_name)}<br><small class="mut">${esc(l.location||"")} ${esc(l.industry||"")}</small>${reason}</td>`+
+      `<td>${esc(l.contact_name||"—")}<br><small class="mut">${esc(l.contact_title||"")}</small></td>`+
+      `<td>${esc(l.email||"—")}</td><td>${esc(l.phone||"—")}</td><td>${outreach}</td></tr>`;
+  });
   $("results").innerHTML = html + "</table>";
+
+  $("selAll").onchange = e => {
+    RESULTS.forEach((_,i)=> e.target.checked ? SELECTED.add(i) : SELECTED.delete(i));
+    renderResults();
+  };
+  document.querySelectorAll(".rowsel").forEach(cb => cb.onchange = e => {
+    const i = +e.target.dataset.i;
+    e.target.checked ? SELECTED.add(i) : SELECTED.delete(i);
+    e.target.closest("tr").classList.toggle("sel", e.target.checked);
+    updateSelCount();
+  });
+  updateSelCount();
 }
+function updateSelCount(){ $("selCount").textContent = SELECTED.size+" selected"; }
+
+// ── Outreach on selected ────────────────────────────────────────────
+async function doOutreach(channel){
+  if (!SELECTED.size){ $("outreachStatus").textContent = "Select at least one lead first."; return; }
+  const send = $("sendForReal").checked;
+  if (send && !confirm(`This will REALLY ${channel==="voice"?"place calls":"send emails"} to ${SELECTED.size} lead(s). Continue?`)) return;
+  $("emailSel").disabled = $("callSel").disabled = true;
+  $("outreachStatus").textContent = (send?"Live — ":"Dry run — ")+(channel==="voice"?"preparing calls…":"drafting emails…");
+  const res = await fetch("/api/outreach", {method:"POST", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({job_id:JOB_ID, indexes:[...SELECTED], channel, send})});
+  const data = await res.json();
+  if (data.error){ $("outreachStatus").textContent = "Error: "+data.error; $("emailSel").disabled=$("callSel").disabled=false; return; }
+  pollOutreach(data.job_id);
+}
+function pollOutreach(jid){
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    const job = await (await fetch("/api/jobs/"+jid)).json();
+    if (job.stage) $("outreachStatus").textContent = "Working… "+job.stage;
+    if (job.status==="done"){
+      clearInterval(pollTimer);
+      $("emailSel").disabled=$("callSel").disabled=false;
+      $("outreachStatus").textContent = "Done.";
+      RESULTS = job.results||RESULTS;
+      renderResults();
+    } else if (job.status==="error"){
+      clearInterval(pollTimer);
+      $("emailSel").disabled=$("callSel").disabled=false;
+      $("outreachStatus").textContent = "Failed: "+job.error;
+    }
+  }, 2500);
+}
+$("emailSel").onclick = () => doOutreach("email");
+$("callSel").onclick  = () => doOutreach("voice");
+
+// ── Export ──────────────────────────────────────────────────────────
+function exportLeads(fmt){
+  if (!JOB_ID) return;
+  let url = `/api/export/${JOB_ID}?format=${fmt}`;
+  if (SELECTED.size) url += `&indexes=${[...SELECTED].join(",")}`;
+  window.location = url;
+}
+$("exportCsv").onclick  = () => exportLeads("csv");
+$("exportJson").onclick = () => exportLeads("json");
+
+$("startOver").onclick = () => { JOB_ID=null; RESULTS=[]; SELECTED.clear(); setIndustries([]); goStep(1); };
+
+// ── History modal ───────────────────────────────────────────────────
+const histOverlay = $("historyOverlay");
+const EV_META = {
+  search_started:   {ico:"🔎", line:e=>`Searched for <b>${esc(e.industries)}</b> in <b>${esc(e.location)}</b> (up to ${esc(e.max_leads)} leads) for <b>${esc(e.product)}</b>`},
+  search_completed: {ico:"✅", line:e=>`Search finished — found <b>${esc(e.leads_found)}</b> lead(s)${(e.top_companies||[]).length?": "+esc((e.top_companies||[]).join(", ")):""}`},
+  search_failed:    {ico:"❌", line:e=>`Search failed: ${esc(e.error)}`},
+  email_outreach:   {ico:"✉️", line:e=>`${e.live?"<b>Sent</b> email":"Drafted email"} to <b>${esc(e.company)}</b>${e.to?" ("+esc(e.to)+")":""} — ${esc(e.status)}${e.subject?": “"+esc(e.subject)+"”":""}`},
+  call_placed:      {ico:"📞", line:e=>`${e.live?"<b>Called</b>":"Prepared call to"} <b>${esc(e.company)}</b>${e.to?" ("+esc(e.to)+")":""} — ${esc(e.status)}${e.detail?": "+esc(e.detail):""}`},
+  voice_demo_turn:  {ico:"🎙️", line:e=>`Voice demo (${esc(e.company)}): ${e.user_said?"they said “"+esc(e.user_said)+"” — ":""}agent said “${esc(e.agent_said)}”`},
+};
+async function openHistory(){
+  histOverlay.classList.add("show");
+  $("historyFeed").innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const d = await (await fetch("/api/history")).json();
+    const evs = d.events || [];
+    if (!evs.length){ $("historyFeed").innerHTML = '<div class="empty">Nothing recorded yet — run a search or outreach first.</div>'; return; }
+    $("historyFeed").innerHTML = evs.map(e => {
+      const meta = EV_META[e.event] || {ico:"•", line:x=>esc(x.event)};
+      const when = e.time ? new Date(e.time).toLocaleString() : "";
+      return `<div class="ev"><span class="ico">${meta.ico}</span><div><div class="what">${meta.line(e)}</div><div class="when">${esc(when)}</div></div></div>`;
+    }).join("");
+  } catch (err){
+    $("historyFeed").innerHTML = '<div class="empty">Could not load history.</div>';
+  }
+}
+$("openHistory").onclick = openHistory;
+$("closeHistory").onclick = () => histOverlay.classList.remove("show");
+histOverlay.onclick = e => { if (e.target===histOverlay) histOverlay.classList.remove("show"); };
+
+// ── Settings modal ──────────────────────────────────────────────────
+const overlay = $("settingsOverlay");
+function openSettings(){ overlay.classList.add("show"); loadConfig(); }
+function closeSettings(){ overlay.classList.remove("show"); }
+$("openSettings").onclick = openSettings;
+$("closeSettings").onclick = closeSettings;
+$("cancelSettings").onclick = closeSettings;
+overlay.onclick = e => { if (e.target===overlay) closeSettings(); };
+
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");
+  document.querySelectorAll(".tabpane").forEach(p=>p.classList.toggle("active", p.dataset.tab===b.dataset.tab));
+});
+$("cfg_voice_provider").onchange = e => { $("signalwireRow").style.display = e.target.value==="signalwire" ? "" : "none"; };
+
+async function loadConfig(){
+  const c = await (await fetch("/api/config")).json();
+  $("keyState").textContent = c.anthropic_key_set ? "set ✓" : "not set";
+  $("keyState").className = "pill "+(c.anthropic_key_set?"ok":"bad");
+  // email
+  $("cfg_smtp_host").value = c.email.host;
+  $("cfg_smtp_port").value = c.email.port;
+  $("cfg_smtp_username").value = c.email.username;
+  $("cfg_smtp_from_name").value = c.email.from_name;
+  $("cfg_smtp_from_email").value = c.email.from_email;
+  $("smtpPwState").textContent = c.email.password_set ? "saved ✓" : "not set";
+  $("smtpPwState").className = "pill "+(c.email.password_set?"ok":"");
+  // voice
+  $("cfg_voice_provider").value = c.voice.provider || "twilio";
+  $("signalwireRow").style.display = c.voice.provider==="signalwire" ? "" : "none";
+  $("cfg_voice_account_sid").value = "";
+  $("cfg_voice_account_sid").placeholder = c.voice.account_sid || "AC…";
+  $("cfg_voice_from_number").value = c.voice.from_number;
+  $("cfg_signalwire_space_url").value = c.voice.signalwire_space;
+  $("cfg_voice_webhook_base_url").value = c.voice.webhook_base_url;
+  $("voiceTokState").textContent = c.voice.auth_token_set ? "saved ✓" : "not set";
+  $("voiceTokState").className = "pill "+(c.voice.auth_token_set?"ok":"");
+}
+
+$("saveSettings").onclick = async () => {
+  $("settingsStatus").textContent = "Saving…";
+  const body = {
+    anthropic_key: $("cfg_anthropic_key").value,
+    smtp_host: $("cfg_smtp_host").value, smtp_port: $("cfg_smtp_port").value,
+    smtp_username: $("cfg_smtp_username").value, smtp_password: $("cfg_smtp_password").value,
+    smtp_from_name: $("cfg_smtp_from_name").value, smtp_from_email: $("cfg_smtp_from_email").value,
+    voice_provider: $("cfg_voice_provider").value, voice_account_sid: $("cfg_voice_account_sid").value,
+    voice_auth_token: $("cfg_voice_auth_token").value, voice_from_number: $("cfg_voice_from_number").value,
+    signalwire_space_url: $("cfg_signalwire_space_url").value, voice_webhook_base_url: $("cfg_voice_webhook_base_url").value,
+  };
+  await fetch("/api/config", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  $("cfg_anthropic_key").value = $("cfg_smtp_password").value = $("cfg_voice_auth_token").value = "";
+  $("settingsStatus").textContent = "Saved ✓";
+  loadConfig();
+  setTimeout(()=>{ $("settingsStatus").textContent=""; }, 2000);
+};
 </script>
 </body>
 </html>
