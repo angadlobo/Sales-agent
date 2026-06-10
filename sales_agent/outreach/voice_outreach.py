@@ -1,14 +1,19 @@
 """Place AI voice calls that talk to a prospect and qualify them.
 
 Architecture:
-  1. `place_call()` uses the Twilio REST API to dial the lead. Twilio fetches
-     TwiML from the webhook server (`voice_server.py`).
-  2. The webhook server uses <Gather input="speech"> to transcribe what the
-     person says, asks Claude for the next line, and speaks it back with <Say>.
+  1. `place_call()` dials the lead through a telephony provider's REST API.
+     Supported: Twilio and SignalWire — both speak the same 2010-04-01 API,
+     so we call it directly over HTTP (no provider SDK needed).
+  2. The provider fetches TwiML/LaML from the webhook server
+     (`voice_server.py`), which uses <Gather input="speech"> to transcribe
+     what the person says, asks Claude for the next line, and speaks it back.
   3. The loop continues until the call ends.
 
-Running real calls needs: Twilio credentials, a phone number, and the webhook
-server reachable at a public HTTPS URL (e.g. via ngrok). See README.
+Real phone calls need provider credentials, a phone number, and the webhook
+server reachable at a public HTTPS URL (e.g. via ngrok). For a 100% free way
+to talk to the agent, use the browser-voice page in the web UI instead
+(`python -m sales_agent.webapp`) — it uses the browser's own speech engine
+and no telephony at all.
 """
 
 from __future__ import annotations
@@ -106,18 +111,22 @@ def place_call(
         return OutreachResult(
             channel=Channel.VOICE,
             status=OutreachStatus.FAILED,
-            detail="Twilio not configured (set TWILIO_* and VOICE_WEBHOOK_BASE_URL)",
+            detail=(
+                "voice provider not configured (set VOICE_PROVIDER plus "
+                "VOICE_ACCOUNT_SID / VOICE_AUTH_TOKEN / VOICE_FROM_NUMBER / "
+                "VOICE_WEBHOOK_BASE_URL; SignalWire also needs SIGNALWIRE_SPACE_URL)"
+            ),
             body=opener,
         )
 
     try:
-        sid = _twilio_dial(settings, lead)
+        sid = _rest_dial(settings, lead)
     except Exception as exc:  # noqa: BLE001
-        logger.exception("Twilio dial failed for %s", lead.phone)
+        logger.exception("%s dial failed for %s", settings.voice.provider, lead.phone)
         return OutreachResult(
             channel=Channel.VOICE,
             status=OutreachStatus.FAILED,
-            detail=f"Twilio error: {exc}",
+            detail=f"{settings.voice.provider} error: {exc}",
             body=opener,
         )
 
@@ -129,18 +138,43 @@ def place_call(
     )
 
 
-def _twilio_dial(settings: Settings, lead: Lead) -> str:
-    from twilio.rest import Client  # imported lazily so email-only users don't need twilio
+def _rest_dial(settings: Settings, lead: Lead) -> str:
+    """Create an outbound call via the provider's Calls endpoint.
+
+    Twilio and SignalWire share this exact API shape (form-encoded POST with
+    basic auth), so one function covers both with no SDK dependency.
+    """
+    import base64
+    import json
+    import urllib.parse
+    import urllib.request
 
     v = settings.voice
-    client = Client(v.account_sid, v.auth_token)
-    # Twilio will GET this URL for TwiML when the callee answers. We pass the
-    # lead's company so the server can look up context for the conversation.
-    url = f"{v.webhook_base_url.rstrip('/')}/voice/answer?company={lead.company_name}"
-    call = client.calls.create(
-        to=normalize_phone(lead.phone),
-        from_=v.from_number,
-        url=url,
+    # The provider POSTs here for TwiML when the callee answers; we pass the
+    # company name so the webhook server has conversation context.
+    answer_url = (
+        f"{v.webhook_base_url.rstrip('/')}/voice/answer"
+        f"?company={urllib.parse.quote(lead.company_name)}"
+    )
+    endpoint = f"{v.api_base}/Accounts/{v.account_sid}/Calls.json"
+    payload = urllib.parse.urlencode(
+        {
+            "To": normalize_phone(lead.phone),
+            "From": v.from_number,
+            "Url": answer_url,
+            "Method": "POST",
+        }
+    ).encode()
+    auth = base64.b64encode(f"{v.account_sid}:{v.auth_token}".encode()).decode()
+    req = urllib.request.Request(
+        endpoint,
+        data=payload,
+        headers={
+            "Authorization": f"Basic {auth}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
         method="POST",
     )
-    return call.sid
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        data = json.loads(resp.read().decode())
+    return data.get("sid", "unknown")

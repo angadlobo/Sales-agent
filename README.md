@@ -49,11 +49,26 @@ pip install -r requirements.txt
 # 2. Add your Claude API key
 cp .env.example .env          # then edit .env and set ANTHROPIC_API_KEY
 
-# 3. Run the demo (dry run — finds & scores real leads, sends nothing)
-python examples/run_demo.py
+# 3. Launch the web UI
+python -m sales_agent.webapp
+# open http://localhost:8000
 ```
 
-Or use the CLI:
+The web UI is the easiest way in:
+
+- **Dashboard (`/`)** — describe your product and target, hit *Run campaign*,
+  and watch scored leads and drafted emails appear. Dry-run unless you tick
+  "actually send".
+- **Talk to the agent (`/talk`)** — a **100% free voice demo**: your browser
+  does the listening and speaking (Web Speech API, Chrome/Edge), Claude does
+  the thinking. Same conversation brain as real phone calls, zero telephony
+  cost — perfect for hearing and tuning your pitch.
+
+Prefer the terminal? There's a demo script and a CLI too:
+
+```bash
+python examples/run_demo.py   # dry run — finds & scores real leads, sends nothing
+```
 
 ```bash
 # One-off, no config file
@@ -102,11 +117,31 @@ appended automatically. Run with `--send` to actually send.
 
 ## AI voice calls
 
-Real calls need [Twilio](https://www.twilio.com/) and a publicly reachable
-webhook server.
+### Free option (no telephony at all)
+
+`python -m sales_agent.webapp` → open **/talk**. Your browser handles speech
+recognition and speech synthesis (free, built into Chrome/Edge); Claude runs
+the conversation. This is the same brain used on real calls, so it's the
+cheapest way to develop and test your pitch.
+
+### Real phone calls — provider options
+
+There is no truly free way to dial real phone numbers (carriers charge per
+minute), but these get you close:
+
+| Provider | Cost to start | Notes |
+|---|---|---|
+| [Twilio](https://www.twilio.com) | Free trial credit | Most popular; trial calls play a notice & only dial verified numbers |
+| [SignalWire](https://signalwire.com) | Free trial credit | Same API shape as Twilio (supported here via `VOICE_PROVIDER=signalwire`); cheaper per-minute |
+| [Telnyx](https://telnyx.com) / [Plivo](https://www.plivo.com) / [Vonage](https://www.vonage.com) | Trial credit | Similar offerings; would need a small dialer tweak |
+| Self-hosted [Asterisk](https://www.asterisk.org)/[FreeSWITCH](https://signalwire.com/freeswitch) | Software free | You still pay a SIP trunk per minute; much more setup |
+
+This project supports **Twilio and SignalWire out of the box** — both speak
+the same REST API, so we call it directly over HTTP (no SDK needed). Pick one
+with `VOICE_PROVIDER` in `.env`.
 
 ```bash
-# 1. Set TWILIO_* and VOICE_WEBHOOK_BASE_URL in .env
+# 1. Set VOICE_PROVIDER + VOICE_* (and SIGNALWIRE_SPACE_URL if signalwire) in .env
 # 2. Start the conversation webhook server
 python -m sales_agent.outreach.voice_server --config config.yaml
 # 3. Expose it publicly (dev): ngrok http 5000
@@ -115,9 +150,20 @@ python -m sales_agent.outreach.voice_server --config config.yaml
 python -m sales_agent.cli run --config config.yaml --channels voice --send
 ```
 
-On each call Claude speaks an opener, listens via Twilio speech-to-text, and
-replies turn by turn until the conversation ends. It identifies itself as an
-automated assistant if asked, and ends politely on any opt-out.
+On each call Claude speaks an opener, listens via the provider's
+speech-to-text, and replies turn by turn until the conversation ends. It
+identifies itself as an automated assistant if asked, and ends politely on
+any opt-out.
+
+### What's free, summarized
+
+| Piece | Cost |
+|---|---|
+| Web UI + dashboard | Free (Flask, no build step) |
+| Browser-voice demo | Free (browser's own speech engine) |
+| Email outreach | Free with Gmail SMTP + app password (within Gmail's daily limits) |
+| Lead discovery / scoring | Claude API usage (pay per token; web search included) |
+| Real phone calls | Trial credit on Twilio/SignalWire, then per-minute |
 
 ---
 
@@ -159,8 +205,11 @@ sales_agent/
   cli.py               # command-line interface
   outreach/
     email_outreach.py  # draft + SMTP send
-    voice_outreach.py  # place Twilio calls + conversation brain
-    voice_server.py    # Flask webhook for the live call
+    voice_outreach.py  # dial via Twilio/SignalWire REST + conversation brain
+    voice_server.py    # Flask webhook for the live phone call
+  webapp/
+    app.py             # web UI backend (dashboard + free browser-voice API)
+    templates/         # index.html (dashboard), talk.html (voice demo)
 examples/run_demo.py
 tests/
 ```

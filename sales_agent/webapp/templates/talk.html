@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talk to the Sales Agent</title>
+<style>
+  :root { --bg:#0f1217; --card:#171c24; --ink:#e8ebf0; --mut:#8b94a3; --acc:#4f8cff; --ok:#3ecf8e; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; align-items:center; gap:14px; padding:18px 28px; border-bottom:1px solid #232a35; }
+  header h1 { font-size:18px; margin:0; }
+  header a { color:var(--acc); text-decoration:none; margin-left:auto; }
+  main { max-width:760px; margin:0 auto; padding:24px 20px 80px; }
+  .card { background:var(--card); border:1px solid #232a35; border-radius:12px; padding:18px; margin-bottom:18px; }
+  label { display:block; font-size:12px; color:var(--mut); margin:10px 0 4px; }
+  input { width:100%; padding:8px 10px; border-radius:8px; border:1px solid #2c3543; background:#0f141b; color:var(--ink); font:inherit; }
+  .row { display:flex; gap:10px; } .row > div { flex:1; }
+  .controls { display:flex; gap:10px; margin-top:14px; }
+  button { flex:1; padding:12px; border:0; border-radius:8px; font-weight:600; font-size:14px; cursor:pointer; }
+  #start { background:var(--ok); color:#08130d; }
+  #stop  { background:#2c3543; color:var(--ink); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  #log { display:flex; flex-direction:column; gap:8px; }
+  .msg { padding:10px 13px; border-radius:12px; max-width:85%; font-size:14px; line-height:1.45; }
+  .agent { background:#1d2a3f; align-self:flex-start; }
+  .you   { background:#243126; align-self:flex-end; }
+  .sys   { color:var(--mut); font-size:12px; align-self:center; }
+  .banner { background:#1d2530; border:1px solid #2c3543; border-radius:8px; padding:10px 12px; font-size:12.5px; color:var(--mut); margin-bottom:16px; }
+  .live { color:var(--ok); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎙 Talk to the Sales Agent</h1>
+  <a href="/">← Dashboard</a>
+</header>
+<main>
+  <div class="banner">
+    100% free voice demo: your browser does the listening (speech recognition) and the speaking
+    (speech synthesis); Claude does the thinking. No phone provider needed. Works best in
+    <b>Chrome or Edge</b>. This is the exact same conversation brain used for real phone calls —
+    use it to hear and tune your pitch before ever paying for telephony.
+  </div>
+  <div class="card">
+    <div class="row">
+      <div><label>Your product name</label><input id="product_name" value="Acme CRM"></div>
+      <div><label>Pretend I'm from company…</label><input id="company" value="Smith & Co"></div>
+    </div>
+    <label>One-line product description</label>
+    <input id="product_description" value="Simple CRM for small law firms that automates client intake">
+    <div class="controls">
+      <button id="start">▶ Start call</button>
+      <button id="stop" disabled>⏹ End call</button>
+    </div>
+  </div>
+  <div class="card"><div id="log"><div class="msg sys">Press “Start call”. The agent speaks first; then just talk back.</div></div></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const log = $("log");
+let history = [];        // {role, content}
+let recognizing = false;
+let recognition = null;
+let active = false;
+
+function addMsg(cls, text) {
+  const div = document.createElement("div");
+  div.className = "msg " + cls;
+  div.textContent = text;
+  log.appendChild(div);
+  div.scrollIntoView({behavior:"smooth"});
+}
+
+function speak(text) {
+  return new Promise(resolve => {
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.0;
+    u.onend = resolve;
+    u.onerror = resolve;
+    speechSynthesis.speak(u);
+  });
+}
+
+async function agentTurn() {
+  const res = await fetch("/api/talk", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      product_name: $("product_name").value,
+      product_description: $("product_description").value,
+      company: $("company").value,
+      history,
+    }),
+  });
+  const data = await res.json();
+  const reply = data.reply || "(no reply)";
+  history.push({role: "assistant", content: reply});
+  addMsg("agent", reply);
+  await speak(reply);
+  // Agent signals end of call the same way the phone version does.
+  const done = /goodbye|have a great day|take care/i.test(reply);
+  if (done) { endCall("Call ended by agent."); return; }
+  if (active) listen();
+}
+
+function listen() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { addMsg("sys", "Speech recognition not supported in this browser — use Chrome or Edge."); return; }
+  recognition = new SR();
+  recognition.lang = "en-US";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  recognizing = true;
+  addMsg("sys", "🎤 listening…");
+  recognition.onresult = e => {
+    const said = e.results[0][0].transcript;
+    log.lastChild.remove();          // remove "listening…"
+    addMsg("you", said);
+    history.push({role: "user", content: said});
+    agentTurn();
+  };
+  recognition.onerror = e => {
+    if (!active) return;
+    log.lastChild.remove();
+    addMsg("sys", "Didn't catch that (" + e.error + ") — listening again.");
+    if (e.error !== "not-allowed") listen();
+  };
+  recognition.start();
+}
+
+$("start").onclick = async () => {
+  history = [];
+  active = true;
+  $("start").disabled = true;
+  $("stop").disabled = false;
+  addMsg("sys", "Connecting…");
+  await agentTurn();   // empty history -> agent generates its opener
+};
+
+function endCall(reason) {
+  active = false;
+  if (recognition && recognizing) { try { recognition.abort(); } catch(e){} }
+  speechSynthesis.cancel();
+  $("start").disabled = false;
+  $("stop").disabled = true;
+  addMsg("sys", reason || "Call ended.");
+}
+$("stop").onclick = () => endCall("You ended the call.");
+</script>
+</body>
+</html>

@@ -41,18 +41,58 @@ class EmailConfig:
         return all([self.host, self.username, self.password, self.from_email])
 
 
+def _env_first(*names: str) -> Optional[str]:
+    for name in names:
+        value = os.getenv(name)
+        if value:
+            return value
+    return None
+
+
 @dataclass
 class VoiceConfig:
-    account_sid: Optional[str] = field(default_factory=lambda: os.getenv("TWILIO_ACCOUNT_SID"))
-    auth_token: Optional[str] = field(default_factory=lambda: os.getenv("TWILIO_AUTH_TOKEN"))
-    from_number: Optional[str] = field(default_factory=lambda: os.getenv("TWILIO_FROM_NUMBER"))
+    """Telephony provider for AI phone calls.
+
+    Supported providers (both expose the same 2010-04-01 REST API shape):
+      - twilio      https://api.twilio.com
+      - signalwire  https://<your-space>.signalwire.com (set SIGNALWIRE_SPACE_URL)
+
+    No phone provider is needed for the free browser-voice mode in the web UI.
+    """
+
+    provider: str = field(default_factory=lambda: os.getenv("VOICE_PROVIDER", "twilio").lower())
+    account_sid: Optional[str] = field(
+        default_factory=lambda: _env_first("VOICE_ACCOUNT_SID", "TWILIO_ACCOUNT_SID")
+    )
+    auth_token: Optional[str] = field(
+        default_factory=lambda: _env_first("VOICE_AUTH_TOKEN", "TWILIO_AUTH_TOKEN")
+    )
+    from_number: Optional[str] = field(
+        default_factory=lambda: _env_first("VOICE_FROM_NUMBER", "TWILIO_FROM_NUMBER")
+    )
+    signalwire_space: Optional[str] = field(
+        default_factory=lambda: os.getenv("SIGNALWIRE_SPACE_URL")
+    )
     webhook_base_url: Optional[str] = field(
         default_factory=lambda: os.getenv("VOICE_WEBHOOK_BASE_URL")
     )
 
     @property
+    def api_base(self) -> Optional[str]:
+        if self.provider == "twilio":
+            return "https://api.twilio.com/2010-04-01"
+        if self.provider == "signalwire":
+            if not self.signalwire_space:
+                return None
+            space = self.signalwire_space.replace("https://", "").rstrip("/")
+            return f"https://{space}/api/laml/2010-04-01"
+        return None
+
+    @property
     def is_configured(self) -> bool:
-        return all([self.account_sid, self.auth_token, self.from_number, self.webhook_base_url])
+        return all(
+            [self.account_sid, self.auth_token, self.from_number, self.webhook_base_url, self.api_base]
+        )
 
 
 @dataclass
