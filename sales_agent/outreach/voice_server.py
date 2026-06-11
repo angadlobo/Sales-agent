@@ -24,6 +24,7 @@ from typing import Dict, List
 
 from flask import Flask, Response, request
 
+from .. import activity
 from ..config import Settings
 from ..models import Lead
 from . import voice_outreach
@@ -66,6 +67,18 @@ def _escape(text: str) -> str:
     )
 
 
+def _end_call(call_sid: str, lead: Lead, reason: str) -> None:
+    """Persist the full transcript when a call wraps up."""
+    history = _CONVERSATIONS.get(call_sid, [])
+    activity.log(
+        "call_ended",
+        call_sid=call_sid,
+        company=lead.company_name,
+        reason=reason,
+        transcript=history,
+    )
+
+
 def create_app(settings: Settings) -> Flask:
     app = Flask(__name__)
 
@@ -79,6 +92,7 @@ def create_app(settings: Settings) -> Flask:
         opener = voice_outreach.opening_line(settings, lead)
         _CONVERSATIONS[call_sid] = [{"role": "assistant", "content": opener}]
         logger.info("Call %s connected to %s", call_sid, company)
+        activity.log("call_started", call_sid=call_sid, company=company, opener=opener)
         return _twiml(_gather(opener))
 
     @app.route("/voice/gather", methods=["POST"])
@@ -93,13 +107,22 @@ def create_app(settings: Settings) -> Flask:
         logger.info("Call %s heard: %r", call_sid, speech)
 
         if len([m for m in history if m["role"] == "assistant"]) >= MAX_TURNS:
+            _end_call(call_sid, lead, "max turns reached")
             return _twiml("<Say>Thanks for your time. Goodbye!</Say><Hangup/>")
 
         reply = voice_outreach.next_reply(settings, lead, history)
         history.append({"role": "assistant", "content": reply})
+        activity.log(
+            "call_turn",
+            call_sid=call_sid,
+            company=lead.company_name,
+            user_said=speech or None,
+            agent_said=reply,
+        )
 
         # Let Claude end the call by signalling in its reply.
         if any(tok in reply.lower() for tok in ("goodbye", "have a great day", "take care")):
+            _end_call(call_sid, lead, "agent said goodbye")
             return _twiml(f"<Say>{_escape(reply)}</Say><Hangup/>")
 
         return _twiml(_gather(reply))

@@ -46,39 +46,20 @@ ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 _JOBS: Dict[str, Dict[str, Any]] = {}
 
 # Append-only activity log so every search, email and call is on record.
-ACTIVITY_PATH = Path("data") / "activity.jsonl"
-_ACTIVITY_LOCK = threading.Lock()
+# Shared with the CLI pipeline and the phone-call servers via sales_agent.activity.
+from .. import activity as _activity
+
+ACTIVITY_PATH = _activity.ACTIVITY_PATH
 
 
 def _log_activity(event: str, **detail: Any) -> None:
     """Append one event to data/activity.jsonl. Best-effort, never raises."""
-    entry = {"time": datetime.now(timezone.utc).isoformat(), "event": event, **detail}
-    try:
-        with _ACTIVITY_LOCK:
-            ACTIVITY_PATH.parent.mkdir(parents=True, exist_ok=True)
-            with ACTIVITY_PATH.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
-    except Exception:  # noqa: BLE001 - logging must not break the pipeline
-        logger.exception("Failed to write activity log")
+    _activity.log(event, **detail)
 
 
 def _read_activity(limit: int = 200) -> List[dict]:
     """Most recent activity entries, newest first."""
-    if not ACTIVITY_PATH.exists():
-        return []
-    entries: List[dict] = []
-    try:
-        for line in ACTIVITY_PATH.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                entries.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-    except Exception:  # noqa: BLE001
-        logger.exception("Failed to read activity log")
-    return entries[-limit:][::-1]
+    return _activity.read(limit)
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -223,6 +204,7 @@ def _run_outreach_job(
                 status=result.status.value,
                 live=send,
                 subject=result.subject,
+                body=result.body,
                 detail=result.detail,
             )
 

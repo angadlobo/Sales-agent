@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-from . import discovery, enrichment, scoring, storage
+from . import activity, discovery, enrichment, scoring, storage
 from .compliance import Suppression
 from .config import Settings
 from .models import Channel, QualifiedLead
@@ -72,13 +72,25 @@ def _reach_out(ql: QualifiedLead, settings: Settings, suppression: Suppression):
     results = []
     for channel in settings.campaign.channels:
         if channel == Channel.EMAIL.value:
-            results.append(
-                email_outreach.send_email(ql.lead, ql.score, settings, suppression)
-            )
+            result = email_outreach.send_email(ql.lead, ql.score, settings, suppression)
         elif channel == Channel.VOICE.value:
-            results.append(
-                voice_outreach.place_call(ql.lead, ql.score, settings, suppression)
-            )
+            result = voice_outreach.place_call(ql.lead, ql.score, settings, suppression)
         else:
             logger.warning("Unknown channel %r — skipping", channel)
+            continue
+        results.append(result)
+        # Permanent record of what was said/written, reviewable in the
+        # web UI's History panel (same log the webapp writes to).
+        activity.log(
+            "call_placed" if channel == Channel.VOICE.value else "email_outreach",
+            source="cli",
+            company=ql.lead.company_name,
+            contact=ql.lead.contact_name,
+            to=ql.lead.phone if channel == Channel.VOICE.value else ql.lead.email,
+            status=result.status.value,
+            live=not settings.dry_run,
+            subject=result.subject,
+            body=result.body,
+            detail=result.detail,
+        )
     return results

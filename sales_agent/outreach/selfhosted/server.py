@@ -35,6 +35,7 @@ from typing import Dict
 
 from flask import Flask, jsonify, request
 
+from ... import activity
 from ...config import Settings
 from ...models import Lead
 from .. import voice_outreach
@@ -148,16 +149,21 @@ async def handle_call(
             None, voice_outreach.opening_line, settings, lead
         )
         history = [{"role": "assistant", "content": opener}]
+        activity.log(
+            "call_started", call_sid=call_uuid, company=lead.company_name, opener=opener
+        )
         await _send_audio(writer, await loop.run_in_executor(None, speech.synthesize, opener))
 
         detector = asock.UtteranceDetector()
         agent_turns = 1
+        end_reason = "max turns reached"
 
         while agent_turns < MAX_AGENT_TURNS:
             kind, payload = await asock.read_frame(reader)
             if kind in (asock.KIND_TERMINATE, asock.KIND_ERROR):
                 logger.info("Call %s ended by far side", call_uuid)
-                return
+                end_reason = "caller hung up"
+                break
             if kind != asock.KIND_AUDIO:
                 continue
 
@@ -176,6 +182,13 @@ async def handle_call(
             )
             history.append({"role": "assistant", "content": reply})
             agent_turns += 1
+            activity.log(
+                "call_turn",
+                call_sid=call_uuid,
+                company=lead.company_name,
+                user_said=text,
+                agent_said=reply,
+            )
 
             await _send_audio(
                 writer, await loop.run_in_executor(None, speech.synthesize, reply)
@@ -184,8 +197,16 @@ async def handle_call(
             detector.reset()
 
             if any(tok in reply.lower() for tok in GOODBYE_TOKENS):
+                end_reason = "agent said goodbye"
                 break
 
+        activity.log(
+            "call_ended",
+            call_sid=call_uuid,
+            company=lead.company_name,
+            reason=end_reason,
+            transcript=history,
+        )
         writer.write(asock.pack_frame(asock.KIND_TERMINATE))
         await writer.drain()
     except (asyncio.IncompleteReadError, ConnectionResetError):

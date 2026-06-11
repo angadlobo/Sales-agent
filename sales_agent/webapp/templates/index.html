@@ -104,6 +104,11 @@
   .ev .when { color:var(--mut); font-size:11.5px; margin-top:2px; }
   .ev .what b { font-weight:600; }
   .ev .what { line-height:1.45; }
+  /* chat-style transcript lines inside history events */
+  .tline { padding:6px 10px; border-radius:9px; margin-top:5px; font-size:12.5px; line-height:1.45; }
+  .tline.ta { background:#1d2a3f; }
+  .tline.tu { background:#243126; }
+  .tline b { color:var(--mut); font-weight:600; margin-right:4px; }
 </style>
 </head>
 <body>
@@ -599,13 +604,32 @@ $("startOver").onclick = () => { JOB_ID=null; RESULTS=[]; SELECTED.clear(); setI
 
 // ── History modal ───────────────────────────────────────────────────
 const histOverlay = $("historyOverlay");
+// Render a {role, content} history as chat bubbles (Agent vs Them).
+function chatLines(turns){
+  return (turns||[]).map(m =>
+    `<div class="tline ${m.role==="assistant"?"ta":"tu"}"><b>${m.role==="assistant"?"Agent":"Them"}</b>${esc(m.content)}</div>`
+  ).join("");
+}
+// One user/agent exchange as chat bubbles.
+function turnLines(e){
+  let h = "";
+  if (e.user_said) h += `<div class="tline tu"><b>Them</b>${esc(e.user_said)}</div>`;
+  if (e.agent_said) h += `<div class="tline ta"><b>Agent</b>${esc(e.agent_said)}</div>`;
+  return h;
+}
 const EV_META = {
   search_started:   {ico:"🔎", line:e=>`Searched for <b>${esc(e.industries)}</b> in <b>${esc(e.location)}</b> (up to ${esc(e.max_leads)} leads) for <b>${esc(e.product)}</b>`},
   search_completed: {ico:"✅", line:e=>`Search finished — found <b>${esc(e.leads_found)}</b> lead(s)${(e.top_companies||[]).length?": "+esc((e.top_companies||[]).join(", ")):""}`},
   search_failed:    {ico:"❌", line:e=>`Search failed: ${esc(e.error)}`},
-  email_outreach:   {ico:"✉️", line:e=>`${e.live?"<b>Sent</b> email":"Drafted email"} to <b>${esc(e.company)}</b>${e.to?" ("+esc(e.to)+")":""} — ${esc(e.status)}${e.subject?": “"+esc(e.subject)+"”":""}`},
-  call_placed:      {ico:"📞", line:e=>`${e.live?"<b>Called</b>":"Prepared call to"} <b>${esc(e.company)}</b>${e.to?" ("+esc(e.to)+")":""} — ${esc(e.status)}${e.detail?": "+esc(e.detail):""}`},
-  voice_demo_turn:  {ico:"🎙️", line:e=>`Voice demo (${esc(e.company)}): ${e.user_said?"they said “"+esc(e.user_said)+"” — ":""}agent said “${esc(e.agent_said)}”`},
+  email_outreach:   {ico:"✉️", line:e=>`${e.live?"<b>Sent</b> email":"Drafted email"} to <b>${esc(e.company)}</b>${e.to?" ("+esc(e.to)+")":""} — ${esc(e.status)}${e.subject?": “"+esc(e.subject)+"”":""}`
+                              + (e.body?`<details><summary>read the full email</summary><pre>${esc(e.subject?("Subject: "+e.subject+"\n\n"):"")}${esc(e.body)}</pre></details>`:"")},
+  call_placed:      {ico:"📞", line:e=>`${e.live?"<b>Called</b>":"Prepared call to"} <b>${esc(e.company)}</b>${e.to?" ("+esc(e.to)+")":""} — ${esc(e.status)}${e.detail?": "+esc(e.detail):""}`
+                              + (e.body?`<details><summary>opening line</summary><pre>${esc(e.body)}</pre></details>`:"")},
+  call_started:     {ico:"📞", line:e=>`Call connected with <b>${esc(e.company)}</b>` + (e.opener?`<div class="tline ta"><b>Agent</b>${esc(e.opener)}</div>`:"")},
+  call_turn:        {ico:"💬", line:e=>`On the call with <b>${esc(e.company)}</b>:` + turnLines(e)},
+  call_ended:       {ico:"📴", line:e=>`Call with <b>${esc(e.company)}</b> ended (${esc(e.reason)})`
+                              + ((e.transcript||[]).length?`<details><summary>full conversation (${(e.transcript||[]).length} messages)</summary>${chatLines(e.transcript)}</details>`:"")},
+  voice_demo_turn:  {ico:"🎙️", line:e=>`Voice demo (${esc(e.company)}):` + turnLines(e)},
 };
 async function openHistory(){
   histOverlay.classList.add("show");
