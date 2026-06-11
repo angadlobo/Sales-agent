@@ -22,7 +22,7 @@ class _LeadList(BaseModel):
 
 _RESEARCH_PROMPT = """You are a B2B lead-generation researcher.
 
-I sell this product/service:
+I sell this {offering_type}:
 - Name: {name}
 - Description: {description}
 - Ideal customer: {ideal_customer}
@@ -64,6 +64,7 @@ def discover_leads(settings: Settings) -> List[Lead]:
     logger.info("Researching leads for %r in %s / %s", p.name, t.location, t.industry)
     notes = llm.research(
         _RESEARCH_PROMPT.format(
+            offering_type=p.offering_type or "product/service",
             name=p.name,
             description=p.description,
             ideal_customer=p.ideal_customer or "(not specified)",

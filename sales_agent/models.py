@@ -18,6 +18,8 @@ class Product(BaseModel):
 
     name: str
     description: str
+    # "product", "service", or "product & service" — helps frame the pitch.
+    offering_type: Optional[str] = None
     price_point: Optional[str] = None
     ideal_customer: Optional[str] = None
     value_props: List[str] = Field(default_factory=list)

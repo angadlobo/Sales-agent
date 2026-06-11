@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "sales-agent-ui",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "sales_agent.webapp.app", "--port", "8042"],
+      "port": 8042
+    }
+  ]
+}
