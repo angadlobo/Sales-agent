@@ -67,8 +67,8 @@ def _escape(text: str) -> str:
     )
 
 
-def _end_call(call_sid: str, lead: Lead, reason: str) -> None:
-    """Persist the full transcript when a call wraps up."""
+def _end_call(settings: Settings, call_sid: str, lead: Lead, reason: str) -> None:
+    """Persist the transcript and classify the outcome when a call wraps up."""
     history = _CONVERSATIONS.get(call_sid, [])
     activity.log(
         "call_ended",
@@ -77,6 +77,17 @@ def _end_call(call_sid: str, lead: Lead, reason: str) -> None:
         reason=reason,
         transcript=history,
     )
+    try:
+        outcome = voice_outreach.classify_outcome(settings, lead, history)
+        activity.log(
+            "call_outcome",
+            call_sid=call_sid,
+            company=lead.company_name,
+            outcome=outcome.outcome,
+            summary=outcome.summary,
+        )
+    except Exception:  # noqa: BLE001 - classification is best-effort
+        logger.exception("Outcome classification failed for call %s", call_sid)
 
 
 def create_app(settings: Settings) -> Flask:
@@ -107,7 +118,7 @@ def create_app(settings: Settings) -> Flask:
         logger.info("Call %s heard: %r", call_sid, speech)
 
         if len([m for m in history if m["role"] == "assistant"]) >= MAX_TURNS:
-            _end_call(call_sid, lead, "max turns reached")
+            _end_call(settings, call_sid, lead, "max turns reached")
             return _twiml("<Say>Thanks for your time. Goodbye!</Say><Hangup/>")
 
         reply = voice_outreach.next_reply(settings, lead, history)
@@ -122,7 +133,7 @@ def create_app(settings: Settings) -> Flask:
 
         # Let Claude end the call by signalling in its reply.
         if any(tok in reply.lower() for tok in ("goodbye", "have a great day", "take care")):
-            _end_call(call_sid, lead, "agent said goodbye")
+            _end_call(settings, call_sid, lead, "agent said goodbye")
             return _twiml(f"<Say>{_escape(reply)}</Say><Hangup/>")
 
         return _twiml(_gather(reply))

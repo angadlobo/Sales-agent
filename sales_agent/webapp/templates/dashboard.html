@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — Sales Agent</title>
+<style>
+  :root { --bg:#0f1217; --card:#171c24; --ink:#e8ebf0; --mut:#8b94a3; --acc:#4f8cff; --acc2:#7b5cff; --ok:#3ecf8e; --warn:#f5b14c; --bad:#e5645f; --line:#232a35; --field:#0f141b; --fieldline:#2c3543; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; align-items:center; gap:14px; padding:14px 28px; border-bottom:1px solid var(--line); position:sticky; top:0; background:rgba(15,18,23,.92); backdrop-filter:blur(8px); z-index:5; }
+  header h1 { font-size:18px; margin:0; background:linear-gradient(90deg,var(--acc),var(--acc2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  header .spacer { margin-left:auto; }
+  header a { color:var(--acc); text-decoration:none; padding:4px 8px; border-radius:6px; }
+  header a:hover { background:#1d2530; }
+  main { max-width:1100px; margin:0 auto; padding:22px 20px 80px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-bottom:18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; box-shadow:0 4px 24px rgba(0,0,0,.25); }
+  .stat .n { font-size:34px; font-weight:700; line-height:1.1; }
+  .stat .l { color:var(--mut); font-size:12.5px; margin-top:4px; letter-spacing:.02em; }
+  .stat .sub { color:var(--mut); font-size:11.5px; margin-top:6px; }
+  .n.ok{color:var(--ok)} .n.warn{color:var(--warn)} .n.bad{color:var(--bad)} .n.acc{color:var(--acc)}
+  h2 { font-size:15px; margin:26px 0 12px; }
+  /* funnel */
+  .fstage { margin-bottom:10px; }
+  .fstage .top { display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; }
+  .fstage .top b { font-weight:600; }
+  .fstage .top span { color:var(--mut); }
+  .bar { height:22px; border-radius:6px; background:var(--field); border:1px solid var(--fieldline); overflow:hidden; }
+  .bar i { display:block; height:100%; border-radius:5px; background:linear-gradient(90deg,var(--acc),var(--acc2)); min-width:2px; transition:width .6s ease; }
+  .fstage.ok .bar i { background:linear-gradient(90deg,#2aa873,var(--ok)); }
+  /* breakdowns */
+  .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; }
+  .kv { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .kv:last-child { border-bottom:0; }
+  .kv span { color:var(--mut); }
+  .kv b { font-weight:600; }
+  .note { font-size:12px; color:var(--mut); margin-top:10px; line-height:1.5; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:99px; font-size:11px; background:#232a35; color:var(--mut); }
+  .pill.converted{background:#123524;color:var(--ok)} .pill.interested,.pill.follow_up{background:#16273f;color:var(--acc)}
+  .pill.not_interested{background:#3a2c10;color:var(--warn)} .pill.opt_out{background:#3a1716;color:var(--bad)} .pill.unclear{background:#232a35;color:var(--mut)}
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--mut); font-weight:500; font-size:12px; }
+  .empty { color:var(--mut); font-size:14px; padding:36px 0; text-align:center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 Dashboard</h1>
+  <span class="spacer"></span>
+  <a href="/">🔎 Find leads</a>
+  <a href="/talk">🎙 Talk to the agent</a>
+</header>
+<main>
+  <div id="content"><div class="empty">Loading…</div></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+function esc(t){ const d=document.createElement("div"); d.textContent=(t==null?"":t); return d.innerHTML; }
+const fmt = n => (n==null ? "—" : n.toLocaleString());
+
+function statCard(n, label, cls="", sub=""){
+  return `<div class="card stat"><div class="n ${cls}">${fmt(n)}</div><div class="l">${label}</div>${sub?`<div class="sub">${sub}</div>`:""}</div>`;
+}
+function kv(label, value){
+  return `<div class="kv"><span>${label}</span><b>${fmt(value)}</b></div>`;
+}
+function funnelStage(label, n, max, extra="", cls=""){
+  const w = max > 0 ? Math.max(2, Math.round(100*n/max)) : 2;
+  return `<div class="fstage ${cls}"><div class="top"><b>${label}</b><span>${fmt(n)}${extra}</span></div><div class="bar"><i style="width:${w}%"></i></div></div>`;
+}
+
+async function load(){
+  let s;
+  try { s = await (await fetch("/api/stats")).json(); }
+  catch(e){ $("content").innerHTML = '<div class="empty">Could not load stats.</div>'; return; }
+
+  const f = s.funnel, c = s.calls, em = s.emails, o = s.outcomes, cv = s.conversion;
+  const anyData = f.leads_found || f.contacted || s.searches;
+  if (!anyData){
+    $("content").innerHTML = '<div class="empty">No activity yet — run a lead search and some outreach first, then come back.<br><br><a href="/" style="color:var(--acc)">Find leads →</a></div>';
+    return;
+  }
+  const max = Math.max(f.leads_found, f.contacted, f.engaged, f.converted, 1);
+
+  $("content").innerHTML = `
+    <div class="grid">
+      ${statCard(f.leads_found, "Leads discovered", "acc", s.searches + " search" + (s.searches===1?"":"es") + " run")}
+      ${statCard(f.contacted, "Contacted", "", s.companies_contacted + " unique companies")}
+      ${statCard(c.answered, "Picked up", "warn", c.answer_rate!=null ? c.answer_rate + "% answer rate" : "no live calls yet")}
+      ${statCard(f.converted, "Converted", "ok", cv.rate!=null ? cv.rate + "% of classified calls" : "no classified calls yet")}
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Funnel</h2>
+      ${funnelStage("Discovered", f.leads_found, max)}
+      ${funnelStage("Contacted (email or call)", f.contacted, max)}
+      ${funnelStage("Picked up the phone", f.engaged, max)}
+      ${funnelStage("Converted", f.converted, max, "", "ok")}
+    </div>
+
+    <h2>Breakdowns</h2>
+    <div class="cols">
+      <div class="card">
+        <b>📞 Calls</b>
+        ${kv("Dialed (live)", c.dialed)}
+        ${kv("Picked up", c.answered)}
+        ${kv("Did not pick up", c.no_answer)}
+        ${kv("Conversations completed", c.completed)}
+        ${kv("Total spoken exchanges", c.turns)}
+        ${kv("Drafted only (dry-run)", c.prepared)}
+        ${kv("Failed to dial", c.failed)}
+      </div>
+      <div class="card">
+        <b>✉️ Emails</b>
+        ${kv("Sent", em.sent)}
+        ${kv("Drafted only (dry-run)", em.drafted)}
+        ${kv("Skipped (no/invalid address, suppressed)", em.skipped)}
+        ${kv("Failed to send", em.failed)}
+        <div class="note">Replies aren't tracked yet — that needs access to your inbox. Treat "sent" as delivered, not answered.</div>
+      </div>
+      <div class="card">
+        <b>🎯 Call outcomes</b>
+        ${kv("Converted", o.converted)}
+        ${kv("Interested", o.interested)}
+        ${kv("Asked to follow up later", o.follow_up)}
+        ${kv("Not interested", o.not_interested)}
+        ${kv("Asked not to be contacted", o.opt_out)}
+        ${kv("Unclear / cut off", o.unclear)}
+        <div class="note">Each finished call's transcript is classified automatically. Opt-outs should be added to your suppression list.</div>
+      </div>
+    </div>
+
+    <h2>Recent call results</h2>
+    <div class="card">
+      ${ (s.recent_outcomes||[]).length ? `
+      <table>
+        <tr><th>When</th><th>Company</th><th>Outcome</th><th>What happened</th></tr>
+        ${s.recent_outcomes.map(r=>`<tr>
+          <td>${r.time?esc(new Date(r.time).toLocaleString()):"—"}</td>
+          <td>${esc(r.company)}</td>
+          <td><span class="pill ${esc(r.outcome)}">${esc(r.outcome.replace("_"," "))}</span></td>
+          <td>${esc(r.summary||"")}</td>
+        </tr>`).join("")}
+      </table>` : '<div class="empty">No finished calls yet. Outcomes appear here after each call ends.</div>'}
+    </div>`;
+}
+load();
+</script>
+</body>
+</html>

@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional
 from dotenv import set_key
 from flask import Flask, Response, jsonify, render_template, request
 
-from .. import discovery, enrichment, scoring, storage
+from .. import discovery, enrichment, scoring, stats, storage
 from ..business_types import BUSINESS_TYPE_GROUPS, BUSINESS_TYPES
 from ..compliance import Suppression
 from ..config import CampaignConfig, EmailConfig, Settings, VoiceConfig
@@ -335,6 +335,14 @@ def create_app() -> Flask:
     @app.get("/talk")
     def talk():
         return render_template("talk.html")
+
+    @app.get("/dashboard")
+    def dashboard():
+        return render_template("dashboard.html")
+
+    @app.get("/api/stats")
+    def api_stats():
+        return jsonify(stats.compute_stats(_activity.read(limit=100_000)))
 
     @app.get("/api/business-types")
     def business_types():

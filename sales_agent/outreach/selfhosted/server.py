@@ -207,6 +207,19 @@ async def handle_call(
             reason=end_reason,
             transcript=history,
         )
+        try:
+            outcome = await loop.run_in_executor(
+                None, voice_outreach.classify_outcome, settings, lead, history
+            )
+            activity.log(
+                "call_outcome",
+                call_sid=call_uuid,
+                company=lead.company_name,
+                outcome=outcome.outcome,
+                summary=outcome.summary,
+            )
+        except Exception:  # noqa: BLE001 - classification is best-effort
+            logger.exception("Outcome classification failed for call %s", call_uuid)
         writer.write(asock.pack_frame(asock.KIND_TERMINATE))
         await writer.drain()
     except (asyncio.IncompleteReadError, ConnectionResetError):

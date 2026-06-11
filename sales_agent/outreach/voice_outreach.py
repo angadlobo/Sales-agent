@@ -19,7 +19,9 @@ and no telephony at all.
 from __future__ import annotations
 
 import logging
-from typing import Dict, List
+from typing import Dict, List, Literal
+
+from pydantic import BaseModel, Field
 
 from .. import llm
 from ..compliance import ComplianceError, Suppression, check_phone, normalize_phone
@@ -27,6 +29,40 @@ from ..config import Settings
 from ..models import Channel, Lead, LeadScore, OutreachResult, OutreachStatus
 
 logger = logging.getLogger(__name__)
+
+
+class CallOutcome(BaseModel):
+    """How a finished call went — feeds the dashboard funnel."""
+
+    outcome: Literal[
+        "converted",       # agreed to buy / signed up / booked a meeting
+        "interested",      # positive, wants more info or a follow-up
+        "follow_up",       # asked to be called back later / wrong moment
+        "not_interested",  # clear no
+        "opt_out",         # asked not to be contacted again
+        "unclear",         # too short / ambiguous to judge
+    ]
+    summary: str = Field(description="One sentence: what happened on the call")
+
+
+def classify_outcome(
+    settings: Settings, lead: Lead, history: List[Dict[str, str]]
+) -> CallOutcome:
+    """Classify a finished call's transcript so the dashboard can count it."""
+    transcript = "\n".join(
+        f"{'Agent' if m['role'] == 'assistant' else 'Prospect'}: {m['content']}"
+        for m in history
+    )
+    return llm.extract(
+        "Classify the outcome of this sales call with "
+        f"{lead.company_name}. Judge ONLY from what the prospect actually said — "
+        "do not be optimistic. A call is 'converted' only on an explicit yes "
+        "(booked meeting, agreed to sign up). If the prospect never spoke or the "
+        "call cut off early, use 'unclear'.\n\n"
+        f"TRANSCRIPT:\n{transcript}",
+        CallOutcome,
+        model=settings.fast_model,
+    )
 
 
 def call_system_prompt(settings: Settings, lead: Lead) -> str:
