@@ -115,6 +115,45 @@ Set the `SMTP_*` variables in `.env` (any SMTP server — Gmail with an app
 password works). Drafts get a CAN-SPAM-style footer with an opt-out line
 appended automatically. Run with `--send` to actually send.
 
+### Reply tracking (inbox connector)
+
+The agent can watch your inbox and track who responded:
+
+- **Gmail**: zero extra setup — the same app password works for IMAP and the
+  host is derived automatically from `SMTP_HOST`.
+- **Other providers**: set `IMAP_HOST` / `IMAP_USERNAME` / `IMAP_PASSWORD`.
+
+Replies are matched to the exact emails we sent (via Message-ID threading,
+falling back to sender address), classified by Claude (interested / question /
+follow up / not interested / unsubscribe), and shown in the dashboard and
+History. **Unsubscribes are added to the do-not-contact list automatically.**
+Reading is IMAP read-only — nothing in your inbox is marked read or moved.
+
+Check manually with the dashboard's "Check for replies now" button or
+`python -m sales_agent.cli inbox`; the web UI also polls every 5 minutes
+(`INBOX_POLL_SECONDS`).
+
+## How it finds buyers (not just names)
+
+Discovery and scoring run a buyer-intelligence process:
+
+1. **Understand the offer** — who needs it, who can afford it, who buys soon.
+2. **Hunt for buying-intent signals** — hiring, expansion, funding, outdated
+   systems, bad reviews on a relevant dimension — each tagged
+   STRONG/MEDIUM/WEAK with cited evidence.
+3. **Weighted scoring** — need 25%, buying intent 25%, budget 15%, urgency
+   15%, accessibility 10%, location fit 5%, competitive edge 5%.
+4. **Conversion predictions** — reply/meeting/conversion probability,
+   estimated deal value and sales cycle, with a confidence level (prompted to
+   be conservative, not promotional).
+5. **Self-improvement** — `python -m sales_agent.cli learn` (and an automatic
+   trigger every few new outcomes) analyzes which industries, sizes, signals
+   and channels actually converted, writes `data/insights.md`, and injects
+   those learnings into every future search and score.
+
+All of it appears in the UI: expand "why N?" on any lead to see the signal
+evidence, score breakdown, predictions, and recommended first-touch channel.
+
 ## AI voice calls
 
 ### Free option (no telephony at all)

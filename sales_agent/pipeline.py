@@ -26,7 +26,8 @@ def run_campaign(
     Honors settings.dry_run — in dry-run mode no email is sent and no call is
     placed; outreach is drafted only.
     """
-    suppression = Suppression(suppression_path)
+    # Default to the shared list the inbox connector appends opt-outs to.
+    suppression = Suppression(suppression_path or Path("data") / "suppression.txt")
     sent_count = 0
 
     # 1. Discover candidate companies on the web.
@@ -91,6 +92,7 @@ def _reach_out(ql: QualifiedLead, settings: Settings, suppression: Suppression):
             live=not settings.dry_run,
             subject=result.subject,
             body=result.body,
+            message_id=result.message_id,
             detail=result.detail,
         )
     return results

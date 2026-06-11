@@ -86,6 +86,9 @@ def _end_call(settings: Settings, call_sid: str, lead: Lead, reason: str) -> Non
             outcome=outcome.outcome,
             summary=outcome.summary,
         )
+        from .. import learning
+
+        learning.maybe_refresh_insights()
     except Exception:  # noqa: BLE001 - classification is best-effort
         logger.exception("Outcome classification failed for call %s", call_sid)
 

@@ -218,6 +218,9 @@ async def handle_call(
                 outcome=outcome.outcome,
                 summary=outcome.summary,
             )
+            from ... import learning
+
+            await loop.run_in_executor(None, learning.maybe_refresh_insights)
         except Exception:  # noqa: BLE001 - classification is best-effort
             logger.exception("Outcome classification failed for call %s", call_uuid)
         writer.write(asock.pack_frame(asock.KIND_TERMINATE))

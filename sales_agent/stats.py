@@ -45,6 +45,9 @@ def compute_stats(events: List[dict]) -> Dict[str, Any]:
     outcomes = Counter()
     recent_outcomes: List[dict] = []
     companies_contacted = set()
+    replies = Counter()          # classification -> count
+    recent_replies: List[dict] = []
+    inbox_syncs = 0
 
     for e in events:
         kind = e.get("event")
@@ -86,6 +89,19 @@ def compute_stats(events: List[dict]) -> Dict[str, Any]:
             )
         elif kind == "voice_demo_turn":
             demo_turns += 1
+        elif kind == "email_reply":
+            cls = e.get("classification") or "other"
+            replies[cls] += 1
+            recent_replies.append(
+                {
+                    "time": e.get("time"),
+                    "company": e.get("company") or e.get("from"),
+                    "classification": cls,
+                    "summary": e.get("summary"),
+                }
+            )
+        elif kind == "inbox_sync":
+            inbox_syncs += 1
 
     emails_sent = emails.get("sent", 0)
     emails_drafted = emails.get("drafted", 0)
@@ -95,12 +111,16 @@ def compute_stats(events: List[dict]) -> Dict[str, Any]:
 
     contacted = emails_sent + emails_drafted + calls_live + calls_prepared
     classified = sum(outcomes.values())
+    replies_total = sum(replies.values())
+    # Replies are tracked once the inbox connector has run at least once.
+    replies_tracked = inbox_syncs > 0 or replies_total > 0
 
     return {
         "funnel": {
             "leads_found": leads_found,
             "contacted": contacted,
-            "engaged": calls_answered,  # actually picked up and talked
+            # picked up the phone OR replied to an email
+            "engaged": calls_answered + replies_total,
             "converted": converted,
         },
         "searches": searches,
@@ -110,8 +130,14 @@ def compute_stats(events: List[dict]) -> Dict[str, Any]:
             "skipped": emails.get("skipped", 0),
             "failed": emails.get("failed", 0),
             "total": sum(emails.values()),
-            # Honest: we can't see replies without inbox access.
-            "replies_tracked": False,
+            "replies_tracked": replies_tracked,
+            "replies": replies_total,
+            "reply_breakdown": {
+                k: replies.get(k, 0)
+                for k in ["interested", "question", "follow_up", "not_interested", "opt_out", "other"]
+            },
+            "reply_rate": round(100 * replies_total / emails_sent) if emails_sent else None,
+            "no_response": max(0, emails_sent - replies_total) if replies_tracked else None,
         },
         "calls": {
             "dialed": calls_live,
@@ -133,8 +159,11 @@ def compute_stats(events: List[dict]) -> Dict[str, Any]:
         },
         "companies_contacted": len(companies_contacted),
         "voice_demo_turns": demo_turns,
-        # Most recent classified calls, newest first.
+        # Most recent classified calls / replies, newest first.
         "recent_outcomes": sorted(
             recent_outcomes, key=lambda r: r.get("time") or "", reverse=True
+        )[:20],
+        "recent_replies": sorted(
+            recent_replies, key=lambda r: r.get("time") or "", reverse=True
         )[:20],
     }

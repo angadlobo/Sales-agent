@@ -43,6 +43,7 @@ class Suppression:
         v = value.strip().lower()
         self._entries.add(v)
         if self.path:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
             with self.path.open("a") as fh:
                 fh.write(v + "\n")
 

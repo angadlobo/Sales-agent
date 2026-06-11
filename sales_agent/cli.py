@@ -101,6 +101,41 @@ def cmd_discover(args) -> None:
     _print_results(qualified)
 
 
+def cmd_inbox(args) -> None:
+    from . import inbox
+
+    console.print("Checking the inbox for replies…")
+    result = inbox.sync_inbox(lookback_days=args.lookback_days)
+    if "error" in result:
+        console.print(f"[red]{result['error']}[/red]")
+        sys.exit(1)
+    console.print(
+        f"Checked [bold]{result['checked']}[/bold] new message(s); "
+        f"found [bold]{result['new_replies']}[/bold] repl(ies)."
+    )
+    for r in result["replies"]:
+        console.print(
+            f"  • [bold]{r['company'] or r['from']}[/bold] — "
+            f"{r['classification']}: {r['summary']}"
+            + ("  [red](added to suppression list)[/red]" if r["suppressed"] else "")
+        )
+
+
+def cmd_learn(args) -> None:
+    from . import learning
+
+    console.print("Analyzing past outcomes…")
+    result = learning.refresh_insights()
+    if "note" in result:
+        console.print(f"[yellow]{result['note']}[/yellow]")
+        return
+    console.print(
+        f"Analyzed [bold]{result['outcomes']}[/bold] outcome(s). "
+        "Insights saved to data/insights.md and will be used by future searches:\n"
+    )
+    console.print(result["insights"])
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sales-agent", description=__doc__)
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -128,6 +163,20 @@ def build_parser() -> argparse.ArgumentParser:
     disc_p = sub.add_parser("discover", help="Find and score leads only (no outreach)")
     add_common(disc_p)
     disc_p.set_defaults(func=cmd_discover)
+
+    inbox_p = sub.add_parser(
+        "inbox", help="Check the inbox for replies to sent emails (Gmail/IMAP)"
+    )
+    inbox_p.add_argument(
+        "--lookback-days", type=int, default=30, help="How far back to scan the inbox"
+    )
+    inbox_p.set_defaults(func=cmd_inbox)
+
+    learn_p = sub.add_parser(
+        "learn",
+        help="Analyze past outcomes and update targeting insights (self-improvement)",
+    )
+    learn_p.set_defaults(func=cmd_learn)
 
     return parser
 

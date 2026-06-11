@@ -38,7 +38,10 @@
   .note { font-size:12px; color:var(--mut); margin-top:10px; line-height:1.5; }
   .pill { display:inline-block; padding:2px 9px; border-radius:99px; font-size:11px; background:#232a35; color:var(--mut); }
   .pill.converted{background:#123524;color:var(--ok)} .pill.interested,.pill.follow_up{background:#16273f;color:var(--acc)}
-  .pill.not_interested{background:#3a2c10;color:var(--warn)} .pill.opt_out{background:#3a1716;color:var(--bad)} .pill.unclear{background:#232a35;color:var(--mut)}
+  .pill.not_interested{background:#3a2c10;color:var(--warn)} .pill.opt_out{background:#3a1716;color:var(--bad)} .pill.unclear,.pill.other,.pill.question{background:#232a35;color:var(--mut)}
+  .syncbtn { margin-top:12px; width:100%; padding:9px; border:1px solid var(--fieldline); border-radius:8px; background:#1d2530; color:var(--ink); font:inherit; font-size:13px; cursor:pointer; }
+  .syncbtn:hover:not(:disabled) { border-color:var(--acc); }
+  .syncbtn:disabled { opacity:.5; cursor:wait; }
   table { width:100%; border-collapse:collapse; font-size:13px; }
   th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
   th { color:var(--mut); font-weight:500; font-size:12px; }
@@ -115,10 +118,24 @@ async function load(){
       <div class="card">
         <b>✉️ Emails</b>
         ${kv("Sent", em.sent)}
+        ${em.replies_tracked ? kv("Replied", em.replies) : ""}
+        ${em.replies_tracked ? kv("No response yet", em.no_response) : ""}
+        ${em.replies_tracked && em.reply_rate!=null ? kv("Reply rate", em.reply_rate + "%") : ""}
         ${kv("Drafted only (dry-run)", em.drafted)}
         ${kv("Skipped (no/invalid address, suppressed)", em.skipped)}
         ${kv("Failed to send", em.failed)}
-        <div class="note">Replies aren't tracked yet — that needs access to your inbox. Treat "sent" as delivered, not answered.</div>
+        ${em.replies_tracked ? `
+        <div style="margin-top:10px"><b style="font-size:12.5px">Reply types</b>
+          ${kv("Interested", em.reply_breakdown.interested)}
+          ${kv("Asked a question", em.reply_breakdown.question)}
+          ${kv("Follow up later", em.reply_breakdown.follow_up)}
+          ${kv("Not interested", em.reply_breakdown.not_interested)}
+          ${kv("Unsubscribed (auto-suppressed)", em.reply_breakdown.opt_out)}
+          ${kv("Auto-reply / other", em.reply_breakdown.other)}
+        </div>` : `
+        <div class="note">Reply tracking is off until the inbox connector runs. For Gmail your existing SMTP app password works — just hit the button below.</div>`}
+        <button class="syncbtn" id="syncInbox">📥 Check for replies now</button>
+        <div class="note" id="syncStatus"></div>
       </div>
       <div class="card">
         <b>🎯 Call outcomes</b>
@@ -144,7 +161,34 @@ async function load(){
           <td>${esc(r.summary||"")}</td>
         </tr>`).join("")}
       </table>` : '<div class="empty">No finished calls yet. Outcomes appear here after each call ends.</div>'}
+    </div>
+
+    <h2>Recent email replies</h2>
+    <div class="card">
+      ${ (s.recent_replies||[]).length ? `
+      <table>
+        <tr><th>When</th><th>From</th><th>Type</th><th>What they said</th></tr>
+        ${s.recent_replies.map(r=>`<tr>
+          <td>${r.time?esc(new Date(r.time).toLocaleString()):"—"}</td>
+          <td>${esc(r.company)}</td>
+          <td><span class="pill ${esc(r.classification)}">${esc((r.classification||"").replace("_"," "))}</span></td>
+          <td>${esc(r.summary||"")}</td>
+        </tr>`).join("")}
+      </table>` : '<div class="empty">No replies recorded yet. Replies appear after an inbox check finds them.</div>'}
     </div>`;
+
+  const btn = $("syncInbox");
+  if (btn) btn.onclick = async () => {
+    btn.disabled = true;
+    $("syncStatus").textContent = "Checking inbox…";
+    try {
+      const res = await fetch("/api/inbox/sync", {method:"POST"});
+      const d = await res.json();
+      if (d.error) { $("syncStatus").textContent = d.error; btn.disabled = false; return; }
+      $("syncStatus").textContent = `Checked ${d.checked} message(s), found ${d.new_replies} new repl${d.new_replies===1?"y":"ies"}. Refreshing…`;
+      setTimeout(load, 900);
+    } catch(e){ $("syncStatus").textContent = "Sync failed — is the server running?"; btn.disabled = false; }
+  };
 }
 load();
 </script>

@@ -526,7 +526,7 @@ function renderResults(){
   RESULTS.forEach((ql, i) => {
     const l = ql.lead, s = ql.score ? ql.score.score : 0;
     const checked = SELECTED.has(i) ? "checked" : "";
-    const reason = ql.score ? `<details><summary>why ${s}?</summary><pre>${esc(ql.score.reasoning)}</pre></details>` : "";
+    const reason = ql.score ? `<details><summary>why ${s}?</summary><pre>${esc(leadAnalysis(ql))}</pre></details>` : "";
     const outreach = (ql.outreach||[]).map(o=>{
       const cls = o.status==="sent" ? "ok" : (o.status==="failed"?"bad":"warn");
       let b = `<span class="pill ${cls}">${esc(o.channel)}: ${esc(o.status)}</span>`;
@@ -605,6 +605,27 @@ $("startOver").onclick = () => { JOB_ID=null; RESULTS=[]; SELECTED.clear(); setI
 
 // ── History modal ───────────────────────────────────────────────────
 const histOverlay = $("historyOverlay");
+// Full buyer-intelligence readout for one lead's "why" expander.
+function leadAnalysis(ql){
+  const sc = ql.score, l = ql.lead;
+  let out = sc.reasoning || "";
+  if (l.opportunity_summary) out += `\n\nOPPORTUNITY: ${l.opportunity_summary}`;
+  if ((l.intent_signals||[]).length) out += `\n\nINTENT SIGNALS:\n` + l.intent_signals.map(x=>"• "+x).join("\n");
+  if (sc.breakdown){
+    const b = sc.breakdown;
+    out += `\n\nSCORE BREAKDOWN: need ${b.need} · intent ${b.buying_intent} · budget ${b.budget} · urgency ${b.urgency} · reachable ${b.accessibility} · location ${b.location_fit} · our edge ${b.competitive_advantage}`;
+  }
+  if (sc.prediction){
+    const pr = sc.prediction;
+    out += `\n\nPREDICTIONS (${pr.confidence} confidence): reply ${pr.reply_probability}% · meeting ${pr.meeting_probability}% · conversion ${pr.conversion_probability}%`;
+    if (pr.estimated_deal_value) out += `\nEst. deal value: ${pr.estimated_deal_value}`;
+    if (pr.estimated_sales_cycle) out += ` · sales cycle: ${pr.estimated_sales_cycle}`;
+  }
+  if (sc.recommended_channel) out += `\n\nBEST FIRST TOUCH: ${sc.recommended_channel}`;
+  if ((sc.risks||[]).length) out += `\n\nRISKS:\n` + sc.risks.map(x=>"• "+x).join("\n");
+  return out;
+}
+
 // Render a {role, content} history as chat bubbles (Agent vs Them).
 function chatLines(turns){
   return (turns||[]).map(m =>
@@ -631,6 +652,9 @@ const EV_META = {
   call_ended:       {ico:"📴", line:e=>`Call with <b>${esc(e.company)}</b> ended (${esc(e.reason)})`
                               + ((e.transcript||[]).length?`<details><summary>full conversation (${(e.transcript||[]).length} messages)</summary>${chatLines(e.transcript)}</details>`:"")},
   voice_demo_turn:  {ico:"🎙️", line:e=>`Voice demo (${esc(e.company)}):` + turnLines(e)},
+  email_reply:      {ico:"📩", line:e=>`<b>${esc(e.company||e.from)}</b> replied — ${esc((e.classification||"").replace("_"," "))}${e.suppressed?" (added to do-not-contact list)":""}: ${esc(e.summary||"")}`
+                              + (e.body?`<details><summary>read the reply</summary><pre>${esc(e.subject?("Subject: "+e.subject+"\n\n"):"")}${esc(e.body)}</pre></details>`:"")},
+  inbox_sync:       {ico:"📥", line:e=>`Checked the inbox — ${esc(e.checked)} new message(s), ${esc(e.new_replies)} repl${e.new_replies===1?"y":"ies"} found`},
 };
 async function openHistory(){
   histOverlay.classList.add("show");

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import smtplib
 from email.message import EmailMessage
+from email.utils import make_msgid
 
 from pydantic import BaseModel
 
@@ -29,11 +30,14 @@ KEY VALUE: {value_props}
 
 TO: {contact} at {company} ({industry}, {location})
 WHY THEM: {reasoning}
-SIGNALS: {signals}
+OPPORTUNITY: {opportunity}
+OBSERVED SIGNALS (use the most specific one as your opener if it's natural):
+{signals}
 
 Rules:
-- 90 words max. Plain, human, specific to this company — no buzzwords or hype.
-- Open with a concrete observation about their business, not about us.
+- 90 words max. Plain, human, specific to this company — no buzzwords, hype,
+  or generic sales language ("I hope this finds you well", "quick question").
+- Open with a concrete observation about THEIR business (a signal above), not about us.
 - One clear ask: a 15-minute call. No attachments, no images.
 - Do NOT include a signature or unsubscribe line; those are appended separately.
 - Subject line: under 7 words, lowercase-ish, looks like a person wrote it."""
@@ -41,6 +45,7 @@ Rules:
 
 def draft_email(lead: Lead, score: LeadScore | None, settings: Settings) -> _Email:
     p = settings.product
+    signals = [*lead.intent_signals, *(score.buying_signals if score else [])]
     prompt = _PROMPT.format(
         from_name=settings.email.from_name or "Sales",
         product_name=p.name,
@@ -51,7 +56,8 @@ def draft_email(lead: Lead, score: LeadScore | None, settings: Settings) -> _Ema
         industry=lead.industry or "their industry",
         location=lead.location or "",
         reasoning=score.reasoning if score else "(not scored)",
-        signals="; ".join(score.buying_signals) if score else "",
+        opportunity=lead.opportunity_summary or "(not analyzed)",
+        signals="\n".join(f"- {s}" for s in signals) or "- (none observed)",
     )
     return llm.extract(prompt, _Email, model=settings.model)
 
@@ -94,7 +100,7 @@ def send_email(
         )
 
     try:
-        _smtp_send(settings, lead.email, email.subject, full_body)
+        message_id = _smtp_send(settings, lead.email, email.subject, full_body)
     except Exception as exc:  # noqa: BLE001 — surface any SMTP failure to the result
         logger.exception("SMTP send failed for %s", lead.email)
         return OutreachResult(
@@ -111,18 +117,25 @@ def send_email(
         detail=f"sent to {lead.email}",
         subject=email.subject,
         body=full_body,
+        message_id=message_id,
     )
 
 
-def _smtp_send(settings: Settings, to_email: str, subject: str, body: str) -> None:
+def _smtp_send(settings: Settings, to_email: str, subject: str, body: str) -> str:
+    """Send and return the Message-ID, which the inbox connector uses to
+    recognize replies (via their In-Reply-To / References headers)."""
     cfg = settings.email
     msg = EmailMessage()
     msg["From"] = f"{cfg.from_name} <{cfg.from_email}>" if cfg.from_name else cfg.from_email
     msg["To"] = to_email
     msg["Subject"] = subject
+    domain = cfg.from_email.split("@", 1)[-1] if cfg.from_email and "@" in cfg.from_email else None
+    message_id = make_msgid(domain=domain)
+    msg["Message-ID"] = message_id
     msg.set_content(body)
 
     with smtplib.SMTP(cfg.host, cfg.port) as server:
         server.starttls()
         server.login(cfg.username, cfg.password)
         server.send_message(msg)
+    return message_id

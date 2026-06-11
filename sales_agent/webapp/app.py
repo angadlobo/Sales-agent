@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional
 from dotenv import set_key
 from flask import Flask, Response, jsonify, render_template, request
 
-from .. import discovery, enrichment, scoring, stats, storage
+from .. import discovery, enrichment, inbox, scoring, stats, storage
 from ..business_types import BUSINESS_TYPE_GROUPS, BUSINESS_TYPES
 from ..compliance import Suppression
 from ..config import CampaignConfig, EmailConfig, Settings, VoiceConfig
@@ -178,7 +178,8 @@ def _run_outreach_job(
         payload["channels"] = [channel]
         payload["send"] = send
         settings = _settings_from_payload(payload)
-        suppression = Suppression(None)
+        # Shared do-not-contact list; the inbox connector appends opt-outs here.
+        suppression = Suppression(Path("data") / "suppression.txt")
 
         total = len(indexes) or 1
         for n, idx in enumerate(indexes):
@@ -205,6 +206,7 @@ def _run_outreach_job(
                 live=send,
                 subject=result.subject,
                 body=result.body,
+                message_id=result.message_id,
                 detail=result.detail,
             )
 
@@ -344,6 +346,12 @@ def create_app() -> Flask:
     def api_stats():
         return jsonify(stats.compute_stats(_activity.read(limit=100_000)))
 
+    @app.post("/api/inbox/sync")
+    def inbox_sync():
+        result = inbox.sync_inbox()
+        status = 400 if "error" in result else 200
+        return jsonify(result), status
+
     @app.get("/api/business-types")
     def business_types():
         return jsonify({"types": BUSINESS_TYPES, "groups": BUSINESS_TYPE_GROUPS})
@@ -469,13 +477,38 @@ def create_app() -> Flask:
     return app
 
 
+def _inbox_poller(interval: int) -> None:
+    """Background loop: pull replies every `interval` seconds when configured."""
+    import time
+
+    while True:
+        time.sleep(interval)
+        try:
+            cfg = inbox.InboxConfig()
+            if cfg.is_configured:
+                result = inbox.sync_inbox(cfg)
+                if result.get("new_replies"):
+                    logger.info("Inbox poll: %d new repl(ies)", result["new_replies"])
+        except Exception:  # noqa: BLE001 - the poller must never die
+            logger.exception("Inbox poll failed")
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(description="Sales agent web UI")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument(
+        "--inbox-poll",
+        type=int,
+        default=int(os.getenv("INBOX_POLL_SECONDS", "300")),
+        help="Seconds between automatic reply checks (0 disables)",
+    )
     args = parser.parse_args()
     app = create_app()
+    if args.inbox_poll > 0 and inbox.InboxConfig().is_configured:
+        threading.Thread(target=_inbox_poller, args=(args.inbox_poll,), daemon=True).start()
+        logger.info("Inbox poller running every %ds", args.inbox_poll)
     print(f"\n  Sales agent UI:  http://{args.host}:{args.port}\n")
     app.run(host=args.host, port=args.port)
 
