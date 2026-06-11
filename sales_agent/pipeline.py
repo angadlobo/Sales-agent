@@ -31,7 +31,21 @@ def run_campaign(
     sent_count = 0
 
     # 1. Discover candidate companies on the web.
+    activity.log(
+        "search_started",
+        source="cli",
+        product=settings.product.name,
+        industries=settings.targeting.industry or "any industry",
+        location=settings.targeting.location or "anywhere",
+        max_leads=settings.targeting.max_leads,
+    )
     leads = discovery.discover_leads(settings)
+    activity.log(
+        "search_completed",
+        source="cli",
+        leads_found=len(leads),
+        top_companies=[l.company_name for l in leads[:5]],
+    )
 
     qualified: List[QualifiedLead] = []
     for lead in leads:
