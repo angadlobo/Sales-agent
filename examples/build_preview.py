@@ -1,0 +1,242 @@
+"""Build a self-contained HTML preview of the sales agent UI.
+
+Takes the latest demo/campaign run from data/ (run-*.json + activity.jsonl),
+computes the same stats the live dashboard computes, and bakes everything
+into ONE static HTML file with the app's real look: Dashboard, Leads, and
+History tabs. No server needed — open it in any browser.
+
+    python examples/build_preview.py        # writes sales_agent_preview.html
+"""
+
+from __future__ import annotations
+
+import glob
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from sales_agent import activity  # noqa: E402
+from sales_agent.stats import compute_stats  # noqa: E402
+
+OUT = Path("sales_agent_preview.html")
+
+
+def load_data() -> dict:
+    runs = sorted(glob.glob("data/run-*.json"))
+    leads = json.loads(Path(runs[-1]).read_text()) if runs else []
+    events = activity.read(limit=1000)
+    return {"leads": leads, "events": events, "stats": compute_stats(events)}
+
+
+TEMPLATE = r"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Agent — Demo Preview</title>
+<style>
+  :root { --bg:#0f1217; --card:#171c24; --ink:#e8ebf0; --mut:#8b94a3; --acc:#4f8cff; --acc2:#7b5cff; --ok:#3ecf8e; --warn:#f5b14c; --bad:#e5645f; --line:#232a35; --field:#0f141b; --fieldline:#2c3543; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; align-items:center; gap:10px; padding:14px 28px; border-bottom:1px solid var(--line); position:sticky; top:0; background:rgba(15,18,23,.95); backdrop-filter:blur(8px); z-index:5; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0 14px 0 0; background:linear-gradient(90deg,var(--acc),var(--acc2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .tab { padding:7px 14px; border-radius:8px; border:1px solid var(--line); background:none; color:var(--mut); font:inherit; font-size:13.5px; cursor:pointer; }
+  .tab.active { color:var(--ink); border-color:var(--acc); background:rgba(79,140,255,.1); }
+  .demo-pill { margin-left:auto; padding:3px 10px; border-radius:99px; font-size:11px; background:#3a2c10; color:var(--warn); }
+  main { max-width:1100px; margin:0 auto; padding:22px 20px 80px; }
+  .view { display:none; } .view.active { display:block; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-bottom:18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; box-shadow:0 4px 24px rgba(0,0,0,.25); margin-bottom:14px; }
+  .stat .n { font-size:34px; font-weight:700; line-height:1.1; }
+  .stat .l { color:var(--mut); font-size:12.5px; margin-top:4px; }
+  .stat .sub { color:var(--mut); font-size:11.5px; margin-top:6px; }
+  .n.ok{color:var(--ok)} .n.warn{color:var(--warn)} .n.acc{color:var(--acc)}
+  h2 { font-size:15px; margin:24px 0 12px; }
+  .fstage { margin-bottom:10px; }
+  .fstage .top { display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; }
+  .fstage .top span { color:var(--mut); }
+  .bar { height:22px; border-radius:6px; background:var(--field); border:1px solid var(--fieldline); overflow:hidden; }
+  .bar i { display:block; height:100%; border-radius:5px; background:linear-gradient(90deg,var(--acc),var(--acc2)); min-width:2px; }
+  .fstage.ok .bar i { background:linear-gradient(90deg,#2aa873,var(--ok)); }
+  .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; }
+  .kv { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .kv:last-child { border-bottom:0; } .kv span { color:var(--mut); } .kv b { font-weight:600; }
+  .note { font-size:12px; color:var(--mut); margin-top:10px; line-height:1.5; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:99px; font-size:11px; background:#232a35; color:var(--mut); margin:1px 2px 1px 0; }
+  .pill.converted{background:#123524;color:var(--ok)} .pill.interested,.pill.follow_up{background:#16273f;color:var(--acc)}
+  .pill.not_interested{background:#3a2c10;color:var(--warn)} .pill.opt_out{background:#3a1716;color:var(--bad)}
+  .pill.unclear,.pill.other,.pill.question{background:#232a35;color:var(--mut)}
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--mut); font-weight:500; font-size:12px; }
+  tbody tr:hover { background:#151b25; }
+  .score { font-weight:700; font-size:15px; }
+  .s-hi{color:var(--ok)} .s-mid{color:var(--warn)} .s-lo{color:var(--mut)}
+  details { margin-top:4px; } summary { cursor:pointer; color:var(--acc); font-size:12px; }
+  pre { white-space:pre-wrap; background:var(--field); border:1px solid var(--fieldline); border-radius:8px; padding:10px; font-size:12px; color:#c7cdd6; margin:6px 0 0; }
+  .empty { color:var(--mut); font-size:14px; padding:36px 0; text-align:center; }
+  .feed { display:flex; flex-direction:column; gap:8px; }
+  .ev { display:flex; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--field); font-size:13px; }
+  .ev .ico { flex:none; font-size:16px; }
+  .ev .when { color:var(--mut); font-size:11.5px; margin-top:2px; }
+  .ev .what b { font-weight:600; } .ev .what { line-height:1.45; }
+  .tline { padding:6px 10px; border-radius:9px; margin-top:5px; font-size:12.5px; line-height:1.45; }
+  .tline.ta { background:#1d2a3f; } .tline.tu { background:#243126; }
+  .tline b { color:var(--mut); font-weight:600; margin-right:4px; }
+  small.mut { color:var(--mut); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🤖 Sales Agent</h1>
+  <button class="tab active" data-v="dash">📊 Dashboard</button>
+  <button class="tab" data-v="leads">🔎 Leads</button>
+  <button class="tab" data-v="hist">📜 History</button>
+  <span class="demo-pill">static preview — demo data, nothing was sent</span>
+</header>
+<main>
+  <div class="view active" id="v-dash"></div>
+  <div class="view" id="v-leads"></div>
+  <div class="view" id="v-hist"></div>
+</main>
+<script>
+const DATA = __DATA__;
+const $ = s => document.querySelector(s);
+function esc(t){ const d=document.createElement("div"); d.textContent=(t==null?"":t); return d.innerHTML; }
+const fmt = n => (n==null ? "—" : n.toLocaleString());
+document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active"); $("#v-"+b.dataset.v).classList.add("active");
+});
+
+/* ── Dashboard ─────────────────────────────────────────────────── */
+(function(){
+  const s = DATA.stats, f = s.funnel, c = s.calls, em = s.emails, o = s.outcomes, cv = s.conversion;
+  const max = Math.max(f.leads_found, f.contacted, f.engaged, f.converted, 1);
+  const statCard = (n,l,cls,sub)=>`<div class="card stat"><div class="n ${cls||""}">${fmt(n)}</div><div class="l">${l}</div>${sub?`<div class="sub">${sub}</div>`:""}</div>`;
+  const kv = (l,v)=>`<div class="kv"><span>${l}</span><b>${fmt(v)}</b></div>`;
+  const stage = (l,n,extra,cls)=>`<div class="fstage ${cls||""}"><div class="top"><b>${l}</b><span>${fmt(n)}${extra||""}</span></div><div class="bar"><i style="width:${max>0?Math.max(2,Math.round(100*n/max)):2}%"></i></div></div>`;
+  $("#v-dash").innerHTML = `
+    <div class="grid">
+      ${statCard(f.leads_found,"Leads discovered","acc", s.searches+" search"+(s.searches===1?"":"es")+" run")}
+      ${statCard(f.contacted,"Contacted","", s.companies_contacted+" unique companies")}
+      ${statCard(c.answered,"Picked up","warn", c.answer_rate!=null?c.answer_rate+"% answer rate":"no live calls yet")}
+      ${statCard(f.converted,"Converted","ok", cv.rate!=null?cv.rate+"% of classified calls":"")}
+    </div>
+    <div class="card"><h2 style="margin-top:0">Funnel</h2>
+      ${stage("Discovered",f.leads_found)}
+      ${stage("Contacted (email or call)",f.contacted)}
+      ${stage("Engaged (picked up / replied)",f.engaged)}
+      ${stage("Converted",f.converted,"","ok")}
+    </div>
+    <h2>Breakdowns</h2>
+    <div class="cols">
+      <div class="card"><b>📞 Calls</b>
+        ${kv("Dialed (live)",c.dialed)}${kv("Picked up",c.answered)}${kv("Did not pick up",c.no_answer)}
+        ${kv("Conversations completed",c.completed)}${kv("Total spoken exchanges",c.turns)}
+        ${kv("Drafted only (dry-run)",c.prepared)}${kv("Failed to dial",c.failed)}
+      </div>
+      <div class="card"><b>✉️ Emails</b>
+        ${kv("Sent",em.sent)}
+        ${em.replies_tracked?kv("Replied",em.replies):""}
+        ${em.replies_tracked?kv("No response yet",em.no_response):""}
+        ${kv("Drafted only (dry-run)",em.drafted)}${kv("Skipped",em.skipped)}${kv("Failed",em.failed)}
+        ${em.replies_tracked?`<div style="margin-top:10px"><b style="font-size:12.5px">Reply types</b>
+          ${kv("Interested",em.reply_breakdown.interested)}${kv("Asked a question",em.reply_breakdown.question)}
+          ${kv("Follow up later",em.reply_breakdown.follow_up)}${kv("Not interested",em.reply_breakdown.not_interested)}
+          ${kv("Unsubscribed",em.reply_breakdown.opt_out)}${kv("Auto-reply / other",em.reply_breakdown.other)}</div>`:""}
+      </div>
+      <div class="card"><b>🎯 Call outcomes</b>
+        ${kv("Converted",o.converted)}${kv("Interested",o.interested)}${kv("Follow up later",o.follow_up)}
+        ${kv("Not interested",o.not_interested)}${kv("Asked not to be contacted",o.opt_out)}${kv("Unclear / cut off",o.unclear)}
+      </div>
+    </div>
+    <h2>Recent call results</h2>
+    <div class="card">${tableOf(DATA.stats.recent_outcomes,"outcome")}</div>
+    <h2>Recent email replies</h2>
+    <div class="card">${tableOf(DATA.stats.recent_replies,"classification")}</div>`;
+  function tableOf(rows,key){
+    if(!(rows||[]).length) return '<div class="empty">Nothing yet.</div>';
+    return `<table><tr><th>When</th><th>Company</th><th>Type</th><th>Summary</th></tr>`+rows.map(r=>`<tr>
+      <td>${r.time?esc(new Date(r.time).toLocaleString()):"—"}</td><td>${esc(r.company)}</td>
+      <td><span class="pill ${esc(r[key])}">${esc((r[key]||"").replace("_"," "))}</span></td>
+      <td>${esc(r.summary||"")}</td></tr>`).join("")+`</table>`;
+  }
+})();
+
+/* ── Leads ─────────────────────────────────────────────────────── */
+(function(){
+  const leads = DATA.leads;
+  if(!leads.length){ $("#v-leads").innerHTML = '<div class="empty">No run data.</div>'; return; }
+  function analysis(ql){
+    const sc=ql.score||{}, l=ql.lead;
+    let out = sc.reasoning||"";
+    if(l.opportunity_summary) out += `\n\nOPPORTUNITY: ${l.opportunity_summary}`;
+    if((l.intent_signals||[]).length) out += `\n\nINTENT SIGNALS:\n`+l.intent_signals.map(x=>"• "+x).join("\n");
+    if(sc.breakdown){ const b=sc.breakdown;
+      out += `\n\nSCORE BREAKDOWN: need ${b.need} · intent ${b.buying_intent} · budget ${b.budget} · urgency ${b.urgency} · reachable ${b.accessibility} · location ${b.location_fit} · our edge ${b.competitive_advantage}`; }
+    if(sc.prediction){ const p=sc.prediction;
+      out += `\n\nPREDICTIONS (${p.confidence} confidence): reply ${p.reply_probability}% · meeting ${p.meeting_probability}% · conversion ${p.conversion_probability}%`;
+      if(p.estimated_deal_value) out += `\nEst. deal value: ${p.estimated_deal_value}`;
+      if(p.estimated_sales_cycle) out += ` · sales cycle: ${p.estimated_sales_cycle}`; }
+    if(sc.recommended_channel) out += `\n\nBEST FIRST TOUCH: ${sc.recommended_channel}`;
+    if((sc.risks||[]).length) out += `\n\nRISKS:\n`+sc.risks.map(x=>"• "+x).join("\n");
+    return out;
+  }
+  $("#v-leads").innerHTML = `<div class="card"><table>
+    <tr><th>Score</th><th>Company</th><th>Contact</th><th>Outreach</th></tr>
+    ${leads.map(ql=>{
+      const l=ql.lead, s=ql.score?ql.score.score:0;
+      const cls = s>=65?"s-hi":s>=40?"s-mid":"s-lo";
+      const contact=[l.contact_name&&(l.contact_name+(l.contact_title?" — "+l.contact_title:"")),l.email,l.phone].filter(Boolean).map(esc).join("<br>")||"—";
+      const outreach=(ql.outreach||[]).map(o=>{
+        let b=`<span class="pill">${esc(o.channel)}: ${esc(o.status)}</span>`;
+        if(o.subject||o.body) b+=`<details><summary>view draft</summary><pre>${esc(o.subject?("Subject: "+o.subject+"\n\n"):"")}${esc(o.body||"")}</pre></details>`;
+        return b;}).join("")||"—";
+      return `<tr><td class="score ${cls}">${s}</td>
+        <td><b>${esc(l.company_name)}</b><br><small class="mut">${esc(l.location||"")}${l.company_size?" · "+esc(l.company_size):""}</small>
+        <details><summary>why ${s}?</summary><pre>${esc(analysis(ql))}</pre></details></td>
+        <td>${contact}</td><td>${outreach}</td></tr>`;
+    }).join("")}</table></div>`;
+})();
+
+/* ── History ───────────────────────────────────────────────────── */
+(function(){
+  const chat = ts => (ts||[]).map(m=>`<div class="tline ${m.role==="assistant"?"ta":"tu"}"><b>${m.role==="assistant"?"Agent":"Them"}</b>${esc(m.content)}</div>`).join("");
+  const turn = e => (e.user_said?`<div class="tline tu"><b>Them</b>${esc(e.user_said)}</div>`:"")+(e.agent_said?`<div class="tline ta"><b>Agent</b>${esc(e.agent_said)}</div>`:"");
+  const META = {
+    search_started:{i:"🔎",l:e=>`Searched for <b>${esc(e.industries)}</b> in <b>${esc(e.location)}</b> (up to ${esc(e.max_leads)} leads) for <b>${esc(e.product)}</b>`},
+    search_completed:{i:"✅",l:e=>`Search finished — found <b>${esc(e.leads_found)}</b> lead(s)${(e.top_companies||[]).length?": "+esc(e.top_companies.join(", ")):""}`},
+    email_outreach:{i:"✉️",l:e=>`${e.live?"<b>Sent</b> email":"Drafted email"} to <b>${esc(e.company)}</b>${e.to?" ("+esc(e.to)+")":""} — ${esc(e.status)}${e.subject?": “"+esc(e.subject)+"”":""}`+(e.body?`<details><summary>read the full email</summary><pre>${esc(e.subject?("Subject: "+e.subject+"\n\n"):"")}${esc(e.body)}</pre></details>`:"")},
+    call_placed:{i:"📞",l:e=>`${e.live?"<b>Called</b>":"Prepared call to"} <b>${esc(e.company)}</b>${e.to?" ("+esc(e.to)+")":""} — ${esc(e.status)}`},
+    call_started:{i:"📞",l:e=>`Call connected with <b>${esc(e.company)}</b>`+(e.opener?`<div class="tline ta"><b>Agent</b>${esc(e.opener)}</div>`:"")},
+    call_turn:{i:"💬",l:e=>`On the call with <b>${esc(e.company)}</b>:`+turn(e)},
+    call_ended:{i:"📴",l:e=>`Call with <b>${esc(e.company)}</b> ended (${esc(e.reason)})`+((e.transcript||[]).length?`<details open><summary>full conversation (${e.transcript.length} messages)</summary>${chat(e.transcript)}</details>`:"")},
+    call_outcome:{i:"🎯",l:e=>`Call outcome for <b>${esc(e.company)}</b>: <span class="pill ${esc(e.outcome)}">${esc((e.outcome||"").replace("_"," "))}</span> ${esc(e.summary||"")}`},
+    email_reply:{i:"📩",l:e=>`<b>${esc(e.company||e.from)}</b> replied — ${esc((e.classification||"").replace("_"," "))}: ${esc(e.summary||"")}`+(e.body?`<details><summary>read the reply</summary><pre>${esc(e.subject?("Subject: "+e.subject+"\n\n"):"")}${esc(e.body)}</pre></details>`:"")},
+    inbox_sync:{i:"📥",l:e=>`Checked the inbox — ${esc(e.checked)} new message(s), ${esc(e.new_replies)} repl${e.new_replies===1?"y":"ies"} found`},
+    voice_demo_turn:{i:"🎙️",l:e=>`Voice demo (${esc(e.company)}):`+turn(e)},
+  };
+  $("#v-hist").innerHTML = `<div class="feed">${DATA.events.map(e=>{
+    const m = META[e.event]||{i:"•",l:x=>esc(x.event)};
+    const when = e.time?new Date(e.time).toLocaleString():"";
+    return `<div class="ev"><span class="ico">${m.i}</span><div><div class="what">${m.l(e)}</div><div class="when">${esc(when)}</div></div></div>`;
+  }).join("")}</div>`;
+})();
+</script>
+</body>
+</html>"""
+
+
+def main() -> None:
+    data = load_data()
+    html = TEMPLATE.replace("__DATA__", json.dumps(data, ensure_ascii=False, default=str))
+    OUT.write_text(html, encoding="utf-8")
+    print(f"Wrote {OUT} ({OUT.stat().st_size // 1024} KB) — open it in a browser.")
+
+
+if __name__ == "__main__":
+    main()

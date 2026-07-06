@@ -1,0 +1,230 @@
+<title>Sales Agent — Live Demo</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --surface:#ffffff; --raised:#ffffff; --line:#e4e8ee; --field:#f0f3f7;
+    --ink:#1a2230; --mut:#5b6675; --faint:#8b95a4;
+    --accent:#2f6fe0; --accent-soft:#e7effc;
+    --good:#17895a; --good-soft:#e2f3ea; --warn:#9c6a12; --warn-soft:#f7eed9; --bad:#c5433e; --bad-soft:#f8e5e4;
+    --shadow:0 1px 2px rgba(20,30,50,.06),0 8px 24px rgba(20,30,50,.06);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0e1116; --surface:#161b22; --raised:#1b222c; --line:#242c38; --field:#0c1118;
+      --ink:#e8ecf2; --mut:#8b94a3; --faint:#616c7c;
+      --accent:#5b93ff; --accent-soft:#16233c;
+      --good:#37cc8b; --good-soft:#10261c; --warn:#f0b24a; --warn-soft:#2b2210; --bad:#e5645f; --bad-soft:#2c1615;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f6f7f9; --surface:#ffffff; --raised:#ffffff; --line:#e4e8ee; --field:#f0f3f7;
+    --ink:#1a2230; --mut:#5b6675; --faint:#8b95a4;
+    --accent:#2f6fe0; --accent-soft:#e7effc;
+    --good:#17895a; --good-soft:#e2f3ea; --warn:#9c6a12; --warn-soft:#f7eed9; --bad:#c5433e; --bad-soft:#f8e5e4;
+    --shadow:0 1px 2px rgba(20,30,50,.06),0 8px 24px rgba(20,30,50,.06);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1116; --surface:#161b22; --raised:#1b222c; --line:#242c38; --field:#0c1118;
+    --ink:#e8ecf2; --mut:#8b94a3; --faint:#616c7c;
+    --accent:#5b93ff; --accent-soft:#16233c;
+    --good:#37cc8b; --good-soft:#10261c; --warn:#f0b24a; --warn-soft:#2b2210; --bad:#e5645f; --bad-soft:#2c1615;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-feature-settings:"cv05","ss01"; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 20px 72px;}
+  header{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--line);}
+  .hd{max-width:1060px;margin:0 auto;padding:13px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:680;font-size:16px;letter-spacing:-.01em;}
+  .brand .dot{width:22px;height:22px;border-radius:6px;background:var(--accent);display:grid;place-items:center;color:#fff;font-size:13px;}
+  .tabs{display:flex;gap:4px;background:var(--field);padding:3px;border-radius:10px;border:1px solid var(--line);}
+  .tab{border:0;background:none;color:var(--mut);font:inherit;font-size:13px;font-weight:560;
+    padding:6px 13px;border-radius:7px;cursor:pointer;transition:background .12s,color .12s;}
+  .tab:hover{color:var(--ink);}
+  .tab.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08);}
+  .spacer{margin-left:auto;}
+  .badge{font-size:11px;color:var(--warn);background:var(--warn-soft);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent);
+    padding:3px 10px;border-radius:99px;font-weight:560;}
+  .themebtn{border:1px solid var(--line);background:var(--surface);color:var(--mut);border-radius:8px;
+    width:32px;height:32px;cursor:pointer;font-size:14px;display:grid;place-items:center;}
+  .themebtn:hover{color:var(--ink);}
+  .view{display:none;animation:fade .25s ease;} .view.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  @media (prefers-reduced-motion:reduce){.view{animation:none;}}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);font-weight:640;margin:26px 2px 12px;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:13px;margin-top:22px;}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:18px;box-shadow:var(--shadow);}
+  .kpi .n{font-size:33px;font-weight:720;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums;}
+  .kpi .l{color:var(--mut);font-size:12.5px;margin-top:7px;font-weight:520;}
+  .kpi .s{color:var(--faint);font-size:11.5px;margin-top:5px;}
+  .n.good{color:var(--good);} .n.warn{color:var(--warn);} .n.acc{color:var(--accent);}
+  .funnel{display:flex;flex-direction:column;gap:11px;}
+  .frow .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;}
+  .frow .top b{font-weight:580;} .frow .top span{color:var(--mut);font-variant-numeric:tabular-nums;}
+  .track{height:24px;border-radius:7px;background:var(--field);border:1px solid var(--line);overflow:hidden;}
+  .track i{display:block;height:100%;border-radius:6px 0 0 6px;background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 62%,var(--good)));
+    min-width:3px;transition:width .7s cubic-bezier(.4,0,.2,1);}
+  .frow.win .track i{background:linear-gradient(90deg,color-mix(in srgb,var(--good) 78%,var(--accent)),var(--good));}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:13px;}
+  .card .ttl{font-weight:620;font-size:14px;margin-bottom:4px;}
+  .kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+  .kv:last-child{border-bottom:0;} .kv span{color:var(--mut);} .kv b{font-weight:600;font-variant-numeric:tabular-nums;}
+  .sub{margin-top:12px;} .sub .h{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:620;margin-bottom:2px;}
+  .note{font-size:12px;color:var(--faint);margin-top:11px;line-height:1.5;}
+  .tblwrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:10px 11px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{color:var(--faint);font-weight:580;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody tr:hover{background:var(--field);}
+  .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:560;background:var(--field);color:var(--mut);border:1px solid var(--line);margin:1px 2px 1px 0;}
+  .pill.converted,.pill.interested,.pill.sent{background:var(--good-soft);color:var(--good);border-color:color-mix(in srgb,var(--good) 26%,transparent);}
+  .pill.follow_up,.pill.question,.pill.drafted{background:var(--accent-soft);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 26%,transparent);}
+  .pill.not_interested,.pill.unclear{background:var(--warn-soft);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 26%,transparent);}
+  .pill.opt_out,.pill.failed{background:var(--bad-soft);color:var(--bad);border-color:color-mix(in srgb,var(--bad) 26%,transparent);}
+  .score{font-weight:720;font-size:16px;font-variant-numeric:tabular-nums;}
+  .s-hi{color:var(--good);} .s-mid{color:var(--warn);} .s-lo{color:var(--faint);}
+  details{margin-top:5px;} summary{cursor:pointer;color:var(--accent);font-size:12px;font-weight:540;list-style:none;}
+  summary::-webkit-details-marker{display:none;} summary::before{content:"▸ ";font-size:10px;}
+  details[open] summary::before{content:"▾ ";}
+  pre{white-space:pre-wrap;background:var(--field);border:1px solid var(--line);border-radius:9px;padding:11px 13px;
+    font-size:12px;line-height:1.55;color:var(--ink);margin:7px 0 0;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;}
+  .co{font-weight:600;} .lo{color:var(--faint);font-size:12px;}
+  .feed{display:flex;flex-direction:column;gap:9px;margin-top:22px;}
+  .ev{display:flex;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:var(--shadow);}
+  .ev .ico{flex:none;font-size:16px;width:22px;text-align:center;}
+  .ev .what{font-size:13.5px;line-height:1.5;} .ev .what b{font-weight:620;}
+  .ev .when{color:var(--faint);font-size:11.5px;margin-top:4px;font-variant-numeric:tabular-nums;}
+  .tline{padding:7px 11px;border-radius:10px;margin-top:6px;font-size:12.5px;line-height:1.5;}
+  .tline.ta{background:var(--accent-soft);} .tline.tu{background:var(--field);}
+  .tline b{font-weight:620;margin-right:5px;color:var(--faint);text-transform:uppercase;font-size:10px;letter-spacing:.04em;}
+  .empty{color:var(--faint);text-align:center;padding:34px;font-size:13.5px;}
+  .lead-hd{color:var(--faint);font-size:12px;margin:2px 0 14px;}
+</style>
+
+<header><div class="hd">
+  <div class="brand"><span class="dot">◆</span> Sales Agent</div>
+  <div class="tabs">
+    <button class="tab active" data-v="dash">Dashboard</button>
+    <button class="tab" data-v="leads">Leads</button>
+    <button class="tab" data-v="hist">Activity</button>
+  </div>
+  <span class="spacer"></span>
+  <span class="badge">Demo data · nothing was sent</span>
+  <button class="themebtn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">◐</button>
+</div></header>
+
+<div class="wrap">
+  <section class="view active" id="v-dash"></section>
+  <section class="view" id="v-leads"></section>
+  <section class="view" id="v-hist"></section>
+</div>
+
+<script>
+const DATA = {"leads": [{"lead": {"company_name": "Hill Country Air & Heat", "website": "https://hillcountryairheat.example.com", "contact_name": "Maria Delgado", "contact_title": "Owner", "email": "maria@hillcountryairheat.example.com", "phone": "+15125550142", "location": "Austin, TX", "industry": "HVAC contractor", "rationale": "Owner-run HVAC shop still advertising 'call to schedule' with no online booking.", "source_url": "https://example.com/austin-hvac-directory", "company_size": "~14 technicians", "revenue_range": null, "opportunity_summary": "Growing fast but dispatching by phone and whiteboard; scheduling software directly removes their visible bottleneck.", "intent_signals": ["STRONG: hiring two dispatchers (Indeed posting, May 2026)", "STRONG: Google reviews mention double-booked appointments 3x this spring", "MEDIUM: website has no online booking, just a phone number"]}, "score": {"score": 84, "reasoning": "Textbook ICP match with two STRONG, recent intent signals: actively hiring dispatchers (they're feeling the scheduling pain enough to spend payroll on it) and customers publicly complaining about double-bookings. 14 techs puts the deal at ~$1,386/mo of value vs ~$99/mo cost per tech \u2014 affordable. Owner is named and emailable.", "buying_signals": ["Hiring dispatchers now", "Customer complaints about double-booking", "No online booking on site"], "risks": ["May solve it by just hiring people", "Busy season \u2014 short attention window"], "breakdown": {"need": 90, "buying_intent": 88, "budget": 75, "urgency": 85, "accessibility": 80, "location_fit": 100, "competitive_advantage": 70}, "prediction": {"reply_probability": 9, "meeting_probability": 5, "conversion_probability": 3, "estimated_deal_value": "$16,632/yr (14 techs \u00d7 $99/mo)", "estimated_sales_cycle": "3-6 weeks", "confidence": "medium"}, "recommended_channel": "email \u2014 owner's address is published; reference the dispatcher hiring"}, "outreach": [{"channel": "email", "status": "drafted", "detail": "dry run \u2014 not sent", "subject": "saw you're hiring dispatchers", "body": "Hi Maria,\n\nNoticed Hill Country Air & Heat is hiring two dispatchers \u2014 usually a sign the scheduling board is overflowing (a few of your recent Google reviews mention double-booked slots too).\n\nRouteWise handles that load instead: automated booking, SMS reminders, and live tech tracking, built for shops your size. Crews like yours typically cut no-shows by a third.\n\nWorth a 15-minute call this week to see if it fits before the new hires start?\n\n\u2014\nSales\nYou received this because your business is publicly listed. Reply STOP or \"unsubscribe\" and we won't contact you again.", "message_id": null, "created_at": "2026-06-11T13:46:23.627465Z"}]}, {"lead": {"company_name": "Bluebonnet Plumbing Co.", "website": "https://bluebonnetplumbing.example.com", "contact_name": "James Okafor", "contact_title": "General Manager", "email": "office@bluebonnetplumbing.example.com", "phone": null, "location": "Round Rock, TX", "industry": "Plumbing contractor", "rationale": "Family plumbing business expanding into a second service area.", "source_url": "https://example.com/roundrock-chamber", "company_size": "~8 technicians", "revenue_range": null, "opportunity_summary": "Opening a Georgetown branch; coordinating two territories by phone won't scale.", "intent_signals": ["STRONG: announced second location opening (local news, April 2026)", "WEAK: Central Texas construction boom lifting demand"]}, "score": {"score": 71, "reasoning": "Second-location expansion is a strong, dated trigger: multi-territory dispatch is exactly when phone-and-paper breaks. Smaller fleet (8 techs) means smaller deal but clear urgency window around the branch opening. Only a general office inbox is published.", "buying_signals": ["Opening second location", "Coordination complexity about to double"], "risks": ["GM may not be the economic buyer", "Office inbox may filter cold email"], "breakdown": {"need": 80, "buying_intent": 75, "budget": 65, "urgency": 80, "accessibility": 55, "location_fit": 95, "competitive_advantage": 65}, "prediction": {"reply_probability": 6, "meeting_probability": 3, "conversion_probability": 2, "estimated_deal_value": "$9,504/yr (8 techs \u00d7 $99/mo)", "estimated_sales_cycle": "4-8 weeks", "confidence": "medium"}, "recommended_channel": "email \u2014 tie the pitch to the Georgetown opening"}, "outreach": [{"channel": "email", "status": "drafted", "detail": "dry run \u2014 not sent", "subject": "congrats on the georgetown branch", "body": "Hi James,\n\nSaw the news about Bluebonnet opening in Georgetown \u2014 congrats. Running two service areas off one phone line is usually where the whiteboard stops working.\n\nRouteWise gives each territory its own schedule with one dispatch view, plus SMS reminders and card payments in the field.\n\nOpen to a 15-minute call before the branch opens to see if it'd help the rollout?\n\n\u2014\nSales\nYou received this because your business is publicly listed. Reply STOP or \"unsubscribe\" and we won't contact you again.", "message_id": null, "created_at": "2026-06-11T13:46:23.627641Z"}]}, {"lead": {"company_name": "Lone Star Electric Services", "website": "https://lonestarelectric.example.com", "contact_name": null, "contact_title": null, "email": "info@lonestarelectric.example.com", "phone": null, "location": "Austin, TX", "industry": "Electrical contractor", "rationale": "Mid-size electrical contractor with aging scheduling workflow.", "source_url": "https://example.com/austin-business-listings", "company_size": "~25 employees", "revenue_range": null, "opportunity_summary": "Job postings reference 'paper work orders' \u2014 modernization candidate, though no urgent trigger.", "intent_signals": ["MEDIUM: job posting mentions paper work orders (May 2026)"]}, "score": {"score": 52, "reasoning": "Profile fits and the paper-work-orders mention shows outdated process, but there is no active trigger and no named decision-maker \u2014 generic info@ inbox only. Worth a light touch, not a priority.", "buying_signals": ["Paper work orders referenced in job post"], "risks": ["No urgency signal", "No named contact \u2014 info@ only"], "breakdown": {"need": 60, "buying_intent": 40, "budget": 70, "urgency": 35, "accessibility": 40, "location_fit": 100, "competitive_advantage": 60}, "prediction": {"reply_probability": 3, "meeting_probability": 1, "conversion_probability": 1, "estimated_deal_value": "$29,700/yr if all 25 staff licensed", "estimated_sales_cycle": "2-4 months", "confidence": "low"}, "recommended_channel": "email \u2014 low priority, generic inbox"}, "outreach": []}], "events": [{"time": "2026-06-11T13:46:23.768028+00:00", "event": "email_reply", "from": "office@bluebonnetplumbing.example.com", "company": "Bluebonnet Plumbing Co.", "subject": "Re: congrats on the georgetown branch", "body": "Thanks! Things are hectic with the new branch. Can you send pricing for 8 techs? - James", "classification": "interested", "summary": "Asked for pricing for 8 technicians; open to it after the branch opening.", "suppressed": false}, {"time": "2026-06-11T13:46:23.767967+00:00", "event": "inbox_sync", "checked": 4, "new_replies": 1}, {"time": "2026-06-11T13:46:23.767933+00:00", "event": "call_outcome", "call_sid": "demo123", "company": "Hill Country Air & Heat", "outcome": "converted", "summary": "Agreed to a demo Tuesday morning; calendar invite to follow."}, {"time": "2026-06-11T13:46:23.767879+00:00", "event": "call_ended", "call_sid": "demo123", "company": "Hill Country Air & Heat", "reason": "agent said goodbye", "transcript": [{"role": "assistant", "content": "Hi, this is Alex calling from RouteWise \u2014 do you have thirty seconds?"}, {"role": "user", "content": "Uh, sure, what's this about?"}, {"role": "assistant", "content": "We make scheduling software for HVAC shops. I noticed you're hiring dispatchers \u2014 a lot of owners find our app handles that load instead. Would a quick demo next week be useful?"}, {"role": "user", "content": "Honestly yeah, scheduling has been a mess. Can you do Tuesday morning?"}, {"role": "assistant", "content": "Tuesday morning works \u2014 I'll send a calendar invite to your office email. Thanks Maria, have a great day!"}]}, {"time": "2026-06-11T13:46:23.767846+00:00", "event": "call_turn", "call_sid": "demo123", "company": "Hill Country Air & Heat", "user_said": "Honestly yeah, scheduling has been a mess. Can you do Tuesday morning?", "agent_said": "Tuesday morning works \u2014 I'll send a calendar invite to your office email. Thanks Maria, have a great day!"}, {"time": "2026-06-11T13:46:23.767809+00:00", "event": "call_turn", "call_sid": "demo123", "company": "Hill Country Air & Heat", "user_said": "Uh, sure, what's this about?", "agent_said": "We make scheduling software for HVAC shops. I noticed you're hiring dispatchers \u2014 a lot of owners find our app handles that load instead. Would a quick demo next week be useful?"}, {"time": "2026-06-11T13:46:23.767764+00:00", "event": "call_started", "call_sid": "demo123", "company": "Hill Country Air & Heat", "opener": "Hi, this is Alex calling from RouteWise \u2014 do you have thirty seconds?"}, {"time": "2026-06-11T13:46:23.767629+00:00", "event": "call_placed", "company": "Hill Country Air & Heat", "to": "+15125550142", "status": "sent", "live": true, "detail": "call placed (sid=demo123)"}, {"time": "2026-06-11T13:46:23.627649+00:00", "event": "email_outreach", "source": "cli", "company": "Bluebonnet Plumbing Co.", "contact": "James Okafor", "to": "office@bluebonnetplumbing.example.com", "status": "drafted", "live": false, "subject": "congrats on the georgetown branch", "body": "Hi James,\n\nSaw the news about Bluebonnet opening in Georgetown \u2014 congrats. Running two service areas off one phone line is usually where the whiteboard stops working.\n\nRouteWise gives each territory its own schedule with one dispatch view, plus SMS reminders and card payments in the field.\n\nOpen to a 15-minute call before the branch opens to see if it'd help the rollout?\n\n\u2014\nSales\nYou received this because your business is publicly listed. Reply STOP or \"unsubscribe\" and we won't contact you again.", "message_id": null, "detail": "dry run \u2014 not sent"}, {"time": "2026-06-11T13:46:23.627473+00:00", "event": "email_outreach", "source": "cli", "company": "Hill Country Air & Heat", "contact": "Maria Delgado", "to": "maria@hillcountryairheat.example.com", "status": "drafted", "live": false, "subject": "saw you're hiring dispatchers", "body": "Hi Maria,\n\nNoticed Hill Country Air & Heat is hiring two dispatchers \u2014 usually a sign the scheduling board is overflowing (a few of your recent Google reviews mention double-booked slots too).\n\nRouteWise handles that load instead: automated booking, SMS reminders, and live tech tracking, built for shops your size. Crews like yours typically cut no-shows by a third.\n\nWorth a 15-minute call this week to see if it fits before the new hires start?\n\n\u2014\nSales\nYou received this because your business is publicly listed. Reply STOP or \"unsubscribe\" and we won't contact you again.", "message_id": null, "detail": "dry run \u2014 not sent"}, {"time": "2026-06-11T13:46:23.627277+00:00", "event": "search_completed", "source": "cli", "leads_found": 3, "top_companies": ["Hill Country Air & Heat", "Bluebonnet Plumbing Co.", "Lone Star Electric Services"]}, {"time": "2026-06-11T13:46:23.626844+00:00", "event": "search_started", "source": "cli", "product": "RouteWise", "industries": "HVAC and plumbing contractors", "location": "Austin, Texas", "max_leads": 3}], "stats": {"funnel": {"leads_found": 3, "contacted": 3, "engaged": 2, "converted": 1}, "searches": 1, "emails": {"sent": 0, "drafted": 2, "skipped": 0, "failed": 0, "total": 2, "replies_tracked": true, "replies": 1, "reply_breakdown": {"interested": 1, "question": 0, "follow_up": 0, "not_interested": 0, "opt_out": 0, "other": 0}, "reply_rate": null, "no_response": 0}, "calls": {"dialed": 1, "prepared": 0, "failed": 0, "answered": 1, "no_answer": 0, "completed": 1, "turns": 2, "answer_rate": 100}, "outcomes": {"converted": 1, "interested": 0, "follow_up": 0, "not_interested": 0, "opt_out": 0, "unclear": 0}, "conversion": {"converted": 1, "interested": 0, "not_interested": 0, "opt_out": 0, "rate": 100}, "companies_contacted": 2, "voice_demo_turns": 0, "recent_outcomes": [{"time": "2026-06-11T13:46:23.767933+00:00", "company": "Hill Country Air & Heat", "outcome": "converted", "summary": "Agreed to a demo Tuesday morning; calendar invite to follow."}], "recent_replies": [{"time": "2026-06-11T13:46:23.768028+00:00", "company": "Bluebonnet Plumbing Co.", "classification": "interested", "summary": "Asked for pricing for 8 technicians; open to it after the branch opening."}]}};
+const $=s=>document.querySelector(s);
+function esc(t){const d=document.createElement("div");d.textContent=(t==null?"":t);return d.innerHTML;}
+const fmt=n=>(n==null?"—":n.toLocaleString());
+
+const root=document.documentElement, tb=$("#themeToggle");
+function curTheme(){return root.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");}
+tb.onclick=()=>{root.setAttribute("data-theme",curTheme()==="dark"?"light":"dark");};
+
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active"); $("#v-"+b.dataset.v).classList.add("active");
+});
+
+/* Dashboard */
+(function(){
+  const s=DATA.stats,f=s.funnel,c=s.calls,em=s.emails,o=s.outcomes,cv=s.conversion;
+  const max=Math.max(f.leads_found,f.contacted,f.engaged,f.converted,1);
+  const kpi=(n,l,cls,sub)=>`<div class="card kpi"><div class="n ${cls||""}">${fmt(n)}</div><div class="l">${l}</div>${sub?`<div class="s">${sub}</div>`:""}</div>`;
+  const kv=(l,v)=>`<div class="kv"><span>${l}</span><b>${fmt(v)}</b></div>`;
+  const frow=(l,n,extra,cls)=>`<div class="frow ${cls||""}"><div class="top"><b>${l}</b><span>${fmt(n)}${extra||""}</span></div><div class="track"><i style="width:${Math.max(3,Math.round(100*n/max))}%"></i></div></div>`;
+  const rows=(arr,key)=>!(arr||[]).length?'<div class="empty">Nothing yet.</div>':
+    `<div class="tblwrap"><table><thead><tr><th>When</th><th>Company</th><th>Type</th><th>Summary</th></tr></thead><tbody>${arr.map(r=>`<tr><td class="lo">${r.time?esc(new Date(r.time).toLocaleString()):"—"}</td><td>${esc(r.company)}</td><td><span class="pill ${esc(r[key])}">${esc((r[key]||"").replace(/_/g," "))}</span></td><td>${esc(r.summary||"")}</td></tr>`).join("")}</tbody></table></div>`;
+  $("#v-dash").innerHTML=`
+    <div class="kpis">
+      ${kpi(f.leads_found,"Leads discovered","acc",s.searches+" search"+(s.searches===1?"":"es"))}
+      ${kpi(f.contacted,"Contacted",null,s.companies_contacted+" unique companies")}
+      ${kpi(c.answered,"Picked up the phone","warn",c.answer_rate!=null?c.answer_rate+"% answer rate":"—")}
+      ${kpi(f.converted,"Converted","good",cv.rate!=null?cv.rate+"% of classified calls":"—")}
+    </div>
+    <h2>Funnel</h2>
+    <div class="card"><div class="funnel">
+      ${frow("Discovered",f.leads_found)}
+      ${frow("Contacted (email or call)",f.contacted)}
+      ${frow("Engaged (picked up / replied)",f.engaged)}
+      ${frow("Converted",f.converted,"","win")}
+    </div></div>
+    <h2>Breakdowns</h2>
+    <div class="cols">
+      <div class="card"><div class="ttl">📞 Calls</div>
+        ${kv("Dialed (live)",c.dialed)}${kv("Picked up",c.answered)}${kv("Did not pick up",c.no_answer)}
+        ${kv("Conversations completed",c.completed)}${kv("Spoken exchanges",c.turns)}${kv("Drafted only (dry-run)",c.prepared)}${kv("Failed to dial",c.failed)}
+      </div>
+      <div class="card"><div class="ttl">✉️ Emails</div>
+        ${kv("Sent",em.sent)}${em.replies_tracked?kv("Replied",em.replies):""}${em.replies_tracked?kv("No response yet",em.no_response):""}
+        ${kv("Drafted only (dry-run)",em.drafted)}${kv("Skipped",em.skipped)}${kv("Failed",em.failed)}
+        ${em.replies_tracked?`<div class="sub"><div class="h">Reply types</div>${kv("Interested",em.reply_breakdown.interested)}${kv("Asked a question",em.reply_breakdown.question)}${kv("Follow up later",em.reply_breakdown.follow_up)}${kv("Not interested",em.reply_breakdown.not_interested)}${kv("Unsubscribed",em.reply_breakdown.opt_out)}</div>`:""}
+        <div class="note">Replies are matched to sent mail by Message-ID; unsubscribes auto-add to the do-not-contact list.</div>
+      </div>
+      <div class="card"><div class="ttl">🎯 Call outcomes</div>
+        ${kv("Converted",o.converted)}${kv("Interested",o.interested)}${kv("Follow up later",o.follow_up)}
+        ${kv("Not interested",o.not_interested)}${kv("Asked not to be contacted",o.opt_out)}${kv("Unclear / cut off",o.unclear)}
+        <div class="note">Every finished call's transcript is classified automatically by the model.</div>
+      </div>
+    </div>
+    <h2>Recent call results</h2><div class="card">${rows(s.recent_outcomes,"outcome")}</div>
+    <h2>Recent email replies</h2><div class="card">${rows(s.recent_replies,"classification")}</div>`;
+})();
+
+/* Leads */
+(function(){
+  const leads=DATA.leads;
+  function analysis(ql){
+    const sc=ql.score||{},l=ql.lead; let out=sc.reasoning||"";
+    if(l.opportunity_summary)out+=`\n\nOPPORTUNITY: ${l.opportunity_summary}`;
+    if((l.intent_signals||[]).length)out+=`\n\nINTENT SIGNALS:\n`+l.intent_signals.map(x=>"• "+x).join("\n");
+    if(sc.breakdown){const b=sc.breakdown;out+=`\n\nSCORE BREAKDOWN: need ${b.need} · intent ${b.buying_intent} · budget ${b.budget} · urgency ${b.urgency} · reachable ${b.accessibility} · location ${b.location_fit} · our edge ${b.competitive_advantage}`;}
+    if(sc.prediction){const p=sc.prediction;out+=`\n\nPREDICTIONS (${p.confidence} confidence): reply ${p.reply_probability}% · meeting ${p.meeting_probability}% · conversion ${p.conversion_probability}%`;
+      if(p.estimated_deal_value)out+=`\nEst. deal value: ${p.estimated_deal_value}`; if(p.estimated_sales_cycle)out+=` · sales cycle: ${p.estimated_sales_cycle}`;}
+    if(sc.recommended_channel)out+=`\n\nBEST FIRST TOUCH: ${sc.recommended_channel}`;
+    if((sc.risks||[]).length)out+=`\n\nRISKS:\n`+sc.risks.map(x=>"• "+x).join("\n");
+    return out;
+  }
+  $("#v-leads").innerHTML=`<div class="lead-hd">Ranked by buying probability. Expand a lead for the signal evidence, weighted score breakdown, and conversion prediction.</div>
+    <div class="card"><div class="tblwrap"><table><thead><tr><th>Score</th><th>Company</th><th>Contact</th><th>Outreach</th></tr></thead><tbody>
+    ${leads.map(ql=>{const l=ql.lead,s=ql.score?ql.score.score:0;const cls=s>=65?"s-hi":s>=40?"s-mid":"s-lo";
+      const contact=[l.contact_name&&(l.contact_name+(l.contact_title?" · "+l.contact_title:"")),l.email,l.phone].filter(Boolean).map(esc).join("<br>")||"—";
+      const outreach=(ql.outreach||[]).map(o=>{let b=`<span class="pill ${esc(o.status)}">${esc(o.channel)}: ${esc(o.status)}</span>`;
+        if(o.subject||o.body)b+=`<details><summary>view draft</summary><pre>${esc(o.subject?("Subject: "+o.subject+"\n\n"):"")}${esc(o.body||"")}</pre></details>`;return b;}).join("")||'<span class="lo">below threshold</span>';
+      return `<tr><td class="score ${cls}">${s}</td><td><span class="co">${esc(l.company_name)}</span><br><span class="lo">${esc(l.location||"")}${l.company_size?" · "+esc(l.company_size):""}</span><details><summary>why ${s}?</summary><pre>${esc(analysis(ql))}</pre></details></td><td style="font-size:12.5px">${contact}</td><td>${outreach}</td></tr>`;
+    }).join("")}</tbody></table></div></div>`;
+})();
+
+/* Activity */
+(function(){
+  const chat=ts=>(ts||[]).map(m=>`<div class="tline ${m.role==="assistant"?"ta":"tu"}"><b>${m.role==="assistant"?"Agent":"Them"}</b>${esc(m.content)}</div>`).join("");
+  const turn=e=>(e.user_said?`<div class="tline tu"><b>Them</b>${esc(e.user_said)}</div>`:"")+(e.agent_said?`<div class="tline ta"><b>Agent</b>${esc(e.agent_said)}</div>`:"");
+  const M={
+    search_started:{i:"🔎",l:e=>`Searched for <b>${esc(e.industries)}</b> in <b>${esc(e.location)}</b> — up to ${esc(e.max_leads)} leads for <b>${esc(e.product)}</b>`},
+    search_completed:{i:"✅",l:e=>`Search finished — found <b>${esc(e.leads_found)}</b> lead(s)${(e.top_companies||[]).length?": "+esc(e.top_companies.join(", ")):""}`},
+    email_outreach:{i:"✉️",l:e=>`${e.live?"<b>Sent</b> email":"Drafted email"} to <b>${esc(e.company)}</b>${e.to?" ("+esc(e.to)+")":""} — <span class="pill ${esc(e.status)}">${esc(e.status)}</span>${e.subject?" “"+esc(e.subject)+"”":""}`+(e.body?`<details><summary>read the full email</summary><pre>${esc(e.subject?("Subject: "+e.subject+"\n\n"):"")}${esc(e.body)}</pre></details>`:"")},
+    call_placed:{i:"📞",l:e=>`${e.live?"<b>Called</b>":"Prepared call to"} <b>${esc(e.company)}</b>${e.to?" ("+esc(e.to)+")":""} — <span class="pill ${esc(e.status)}">${esc(e.status)}</span>`},
+    call_started:{i:"📞",l:e=>`Call connected with <b>${esc(e.company)}</b>`+(e.opener?`<div class="tline ta"><b>Agent</b>${esc(e.opener)}</div>`:"")},
+    call_turn:{i:"💬",l:e=>`On the call with <b>${esc(e.company)}</b>:`+turn(e)},
+    call_ended:{i:"📴",l:e=>`Call with <b>${esc(e.company)}</b> ended — ${esc(e.reason)}`+((e.transcript||[]).length?`<details open><summary>full conversation (${e.transcript.length} messages)</summary>${chat(e.transcript)}</details>`:"")},
+    call_outcome:{i:"🎯",l:e=>`Outcome for <b>${esc(e.company)}</b>: <span class="pill ${esc(e.outcome)}">${esc((e.outcome||"").replace(/_/g," "))}</span> ${esc(e.summary||"")}`},
+    email_reply:{i:"📩",l:e=>`<b>${esc(e.company||e.from)}</b> replied — <span class="pill ${esc(e.classification)}">${esc((e.classification||"").replace(/_/g," "))}</span> ${esc(e.summary||"")}`+(e.body?`<details><summary>read the reply</summary><pre>${esc(e.subject?("Subject: "+e.subject+"\n\n"):"")}${esc(e.body)}</pre></details>`:"")},
+    inbox_sync:{i:"📥",l:e=>`Checked the inbox — ${esc(e.checked)} new message(s), ${esc(e.new_replies)} repl${e.new_replies===1?"y":"ies"} found`},
+  };
+  $("#v-hist").innerHTML=`<div class="feed">${DATA.events.map(e=>{const m=M[e.event]||{i:"•",l:x=>esc(x.event)};
+    return `<div class="ev"><span class="ico">${m.i}</span><div style="min-width:0"><div class="what">${m.l(e)}</div><div class="when">${e.time?esc(new Date(e.time).toLocaleString()):""}</div></div></div>`;}).join("")}</div>`;
+})();
+</script>
