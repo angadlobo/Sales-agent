@@ -8,6 +8,7 @@ panel shows, so dashboard and history always agree.
 from __future__ import annotations
 
 from collections import Counter
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
 OUTCOME_LABELS = [
@@ -103,6 +104,8 @@ def compute_stats(events: List[dict]) -> Dict[str, Any]:
         elif kind == "inbox_sync":
             inbox_syncs += 1
 
+    daily_activity = _compute_daily_activity(events)
+
     emails_sent = emails.get("sent", 0)
     emails_drafted = emails.get("drafted", 0)
     no_answer = max(0, calls_live - calls_answered)
@@ -159,6 +162,7 @@ def compute_stats(events: List[dict]) -> Dict[str, Any]:
         },
         "companies_contacted": len(companies_contacted),
         "voice_demo_turns": demo_turns,
+        "daily_activity": daily_activity,
         # Most recent classified calls / replies, newest first.
         "recent_outcomes": sorted(
             recent_outcomes, key=lambda r: r.get("time") or "", reverse=True
@@ -167,3 +171,26 @@ def compute_stats(events: List[dict]) -> Dict[str, Any]:
             recent_replies, key=lambda r: r.get("time") or "", reverse=True
         )[:20],
     }
+
+
+def _compute_daily_activity(events: List[dict], days: int = 7) -> List[Dict[str, Any]]:
+    """Outreach volume (emails sent/drafted + calls placed) per day, last N days."""
+    today = datetime.now(timezone.utc).date()
+    buckets = {today - timedelta(days=i): 0 for i in range(days - 1, -1, -1)}
+    contact_events = {"email_outreach", "call_placed"}
+    for e in events:
+        if e.get("event") not in contact_events:
+            continue
+        t = e.get("time")
+        if not t:
+            continue
+        try:
+            d = datetime.fromisoformat(t).date()
+        except ValueError:
+            continue
+        if d in buckets:
+            buckets[d] += 1
+    return [
+        {"date": d.isoformat(), "label": d.strftime("%a").upper(), "count": c}
+        for d, c in buckets.items()
+    ]

@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Activity — AgentOS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap">
+{% include "_tailwind_config.html" %}
+<style>
+{% include "_shell.css" %}
+.line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+</style>
+</head>
+<body class="bg-background text-on-surface antialiased">
+{% include "_sidebar.html" %}
+{% include "_topbar.html" %}
+
+<main class="ml-64 mt-16 p-margin-desktop min-h-screen">
+  <div class="flex justify-between items-end mb-8 flex-wrap gap-4">
+    <div>
+      <h2 class="font-headline-md text-display-lg text-on-surface">Activity Feed</h2>
+      <p class="text-secondary font-body-base">Real-time record of every search, email and call the agent has run.</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <input id="histSearch" placeholder="Filter by company, email, text…" class="border border-border-subtle bg-white rounded-lg px-3 py-2 text-body-sm w-64">
+      <div class="bg-surface-container-high p-1 rounded flex space-x-1">
+        <button class="filter-btn px-4 py-1.5 rounded text-body-sm font-bold transition-all" data-f="all">All</button>
+        <button class="filter-btn px-4 py-1.5 rounded text-body-sm font-bold transition-all" data-f="calls">Calls</button>
+        <button class="filter-btn px-4 py-1.5 rounded text-body-sm font-bold transition-all" data-f="emails">Emails</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-12 gap-gutter">
+    <div class="col-span-12 lg:col-span-8 space-y-gutter" id="feed"><div class="empty-state">Loading…</div></div>
+
+    <div class="col-span-12 lg:col-span-4 space-y-gutter">
+      <div class="bg-white border border-border-subtle rounded-xl p-6">
+        <h4 class="text-label-mono text-secondary font-bold mb-6 uppercase tracking-wider">Session Overview</h4>
+        <div id="sessionOverview" class="space-y-6 text-secondary text-body-sm">Loading…</div>
+      </div>
+
+      <div class="bg-inverse-surface text-white rounded-xl p-6 relative overflow-hidden">
+        <div class="relative z-10">
+          <div class="flex items-center space-x-2 mb-4">
+            <span class="material-symbols-outlined text-ai-accent">auto_awesome</span>
+            <h4 class="text-label-mono font-bold uppercase">Proactive Insight</h4>
+          </div>
+          <p id="aiInsight" class="text-body-base mb-4 leading-relaxed">Gathering signal…</p>
+          <a href="/leads" class="w-full block text-center py-2 bg-white/10 hover:bg-white/20 rounded text-label-mono font-bold transition-all border border-white/20">VIEW LEADS</a>
+        </div>
+        <div class="absolute top-0 right-0 p-4 opacity-10 pointer-events-none"><span class="material-symbols-outlined text-9xl">psychology</span></div>
+      </div>
+
+      <div class="bg-white border border-border-subtle rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-border-subtle"><h4 class="text-label-mono text-secondary font-bold uppercase">Emerging Opportunities</h4></div>
+        <div id="opportunities" class="divide-y divide-border-subtle"><div class="p-4 text-secondary text-body-sm">Loading…</div></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Detail viewer -->
+<div id="detailOverlay" class="fixed inset-0 bg-black/40 hidden items-start justify-center z-50 p-10 overflow-auto">
+  <div class="bg-white rounded-xl w-full max-w-2xl p-6 relative">
+    <button id="closeDetail" class="absolute top-4 right-4 text-secondary hover:text-on-surface text-2xl leading-none">&times;</button>
+    <h3 id="detailTitle" class="font-headline-md text-headline-md mb-2"></h3>
+    <div id="detailSubject" class="text-body-sm text-secondary mb-3"></div>
+    <div id="detailBody" class="bg-surface-muted border border-border-subtle rounded-lg p-4 text-body-sm whitespace-pre-wrap max-h-96 overflow-auto"></div>
+  </div>
+</div>
+
+<div id="toasts" class="fixed right-4 bottom-4 flex flex-col gap-2 z-50"></div>
+
+<script src="{{ url_for('static', filename='shell.js') }}"></script>
+<script>
+const $ = id => document.getElementById(id);
+function esc(t){ const d=document.createElement("div"); d.textContent=(t==null?"":t); return d.innerHTML; }
+function timeAgo(iso){
+  if (!iso) return "";
+  const s = Math.floor((Date.now() - new Date(iso).getTime())/1000);
+  if (s < 60) return s+"s ago";
+  if (s < 3600) return Math.floor(s/60)+"m ago";
+  if (s < 86400) return Math.floor(s/3600)+"h ago";
+  return Math.floor(s/86400)+"d ago";
+}
+
+const CARD = {
+  search_started:   e => ({icon:"search", type:"other", color:"primary", title:"Search started", badge:"Searching", badgeColor:"secondary", body:`Looking for <b>${esc(e.industries)}</b> in <b>${esc(e.location)}</b> (up to ${esc(e.max_leads)} leads).`}),
+  search_completed: e => ({icon:"task_alt", type:"other", color:"success", title:"Search completed", badge:`${e.leads_found} found`, badgeColor:"success", body:(e.top_companies||[]).length ? `Top matches: ${esc(e.top_companies.join(", "))}` : "No leads matched this search."}),
+  search_failed:    e => ({icon:"error", type:"other", color:"danger", title:"Search failed", badge:"Error", badgeColor:"danger", body:esc(e.error)}),
+  email_outreach:   e => ({icon:"mail", type:"email", color:"ai-accent", title:(e.live?"Sent":"Drafted")+" email — "+esc(e.company), badge:esc(e.status), badgeColor: e.status==="sent"?"success":e.status==="failed"?"danger":"ai-accent", body: e.subject ? `<b>${esc(e.subject)}</b>` : "", detail: e.body}),
+  call_placed:      e => ({icon:"call", type:"call", color:"primary", title:(e.live?"Called":"Prepared call for")+" — "+esc(e.company), badge:esc(e.status), badgeColor: e.status==="sent"?"success":e.status==="failed"?"danger":"secondary", body: e.detail ? esc(e.detail) : "", detail: e.body}),
+  call_started:     e => ({icon:"call", type:"call", color:"success", title:"Call connected — "+esc(e.company), badge:"Answered", badgeColor:"success", body:e.opener?esc(e.opener):""}),
+  call_turn:        e => ({icon:"forum", type:"call", color:"secondary", title:"Live exchange — "+esc(e.company), badge:"In progress", badgeColor:"secondary", body:`Them: ${esc(e.user_said||"")}<br>Agent: ${esc(e.agent_said||"")}`}),
+  call_ended:       e => ({icon:"call_end", type:"call", color:"secondary", title:"Call ended — "+esc(e.company), badge:esc(e.reason||""), badgeColor:"secondary", body:""}),
+  voice_demo_turn:  e => ({icon:"mic", type:"call", color:"secondary", title:"Voice demo — "+esc(e.company), badge:"Demo", badgeColor:"secondary", body:`Them: ${esc(e.user_said||"")}<br>Agent: ${esc(e.agent_said||"")}`}),
+  email_reply:      e => ({icon:"forum", type:"email", color:"success", title:esc(e.company||e.from)+" replied", badge:esc((e.classification||"").replace("_"," ")), badgeColor: e.classification==="converted"||e.classification==="interested"?"success":e.classification==="opt_out"?"danger":"secondary", body:esc(e.summary||""), detail:e.body}),
+  inbox_sync:       e => ({icon:"inbox", type:"other", color:"secondary", title:"Inbox checked", badge:`${e.new_replies} new`, badgeColor:"secondary", body:`${e.checked} message(s) scanned.`}),
+};
+const COLOR_BG = {primary:"bg-primary/10 text-primary", success:"bg-success/10 text-success", "ai-accent":"bg-ai-accent/10 text-ai-accent", danger:"bg-error/10 text-error", secondary:"bg-secondary/10 text-secondary"};
+const BADGE_BG = {primary:"bg-primary/10 text-primary", success:"bg-success/10 text-success", "ai-accent":"bg-ai-accent/10 text-ai-accent", danger:"bg-error/10 text-error", secondary:"bg-surface-container text-secondary"};
+
+let EVENTS = [], FILTER = "all";
+
+function card(e, idx){
+  const build = CARD[e.event];
+  if (!build) return "";
+  const c = build(e);
+  const hasDetail = !!c.detail;
+  return `<div class="activity-card bg-white border border-border-subtle rounded-xl p-6 hover:shadow-sm transition-all" data-type="${c.type}">
+    <div class="flex items-start justify-between mb-4">
+      <div class="flex items-center space-x-4">
+        <div class="w-10 h-10 rounded ${COLOR_BG[c.color]||COLOR_BG.secondary} flex items-center justify-center">
+          <span class="material-symbols-outlined">${c.icon}</span>
+        </div>
+        <div><h3 class="font-headline-md text-body-base font-bold">${c.title}</h3></div>
+      </div>
+      <div class="text-right">
+        <span class="${BADGE_BG[c.badgeColor]||BADGE_BG.secondary} px-3 py-1 rounded-full text-label-mono uppercase font-bold">${c.badge}</span>
+        <p class="text-[11px] text-secondary mt-1">${timeAgo(e.time)}</p>
+      </div>
+    </div>
+    ${c.body ? `<div class="bg-surface-container-low rounded-lg p-4 border-l-4 border-${c.color==="ai-accent"?"ai-accent":c.color} text-body-sm text-on-surface-variant">${c.body}</div>` : ""}
+    ${hasDetail ? `<button class="text-primary text-body-sm font-bold flex items-center hover:underline mt-3 view-detail" data-idx="${idx}">View full <span class="material-symbols-outlined text-sm ml-1">chevron_right</span></button>` : ""}
+  </div>`;
+}
+
+function renderFeed(){
+  const q = $("histSearch").value.trim().toLowerCase();
+  let evs = EVENTS.filter(e => FILTER==="all" ? true : (CARD[e.event] && CARD[e.event](e).type === (FILTER==="calls"?"call":"email")));
+  if (q) evs = evs.filter(e => JSON.stringify(e).toLowerCase().includes(q));
+  evs = evs.filter(e => CARD[e.event]);
+  if (!evs.length){
+    $("feed").innerHTML = `<div class="empty-state bg-white border border-border-subtle rounded-xl">${q?"Nothing matches your filter.":"No activity recorded yet — deploy an agent to get started."}</div>`;
+    return;
+  }
+  $("feed").innerHTML = evs.slice(0, 100).map((e,i) => card(e,i)).join("");
+  window.CURRENT_EVS = evs;
+  $("feed").querySelectorAll(".view-detail").forEach(b => b.onclick = () => {
+    const e = window.CURRENT_EVS[+b.dataset.idx];
+    const c = CARD[e.event](e);
+    $("detailTitle").textContent = c.title.replace(/<[^>]+>/g, "");
+    $("detailSubject").textContent = e.subject || "";
+    $("detailBody").textContent = c.detail || "";
+    $("detailOverlay").classList.remove("hidden");
+    $("detailOverlay").classList.add("flex");
+  });
+}
+$("closeDetail").onclick = () => { $("detailOverlay").classList.add("hidden"); $("detailOverlay").classList.remove("flex"); };
+$("detailOverlay").onclick = e => { if (e.target.id === "detailOverlay") $("closeDetail").onclick(); };
+
+document.querySelectorAll(".filter-btn").forEach(b => b.onclick = () => {
+  FILTER = b.dataset.f;
+  document.querySelectorAll(".filter-btn").forEach(x => x.className = "filter-btn px-4 py-1.5 rounded text-body-sm font-bold transition-all text-secondary hover:text-on-surface");
+  b.className = "filter-btn px-4 py-1.5 rounded text-body-sm font-bold bg-white shadow-sm text-primary transition-all";
+  renderFeed();
+});
+$("histSearch").oninput = renderFeed;
+
+async function load(){
+  let hist, stats, leads;
+  try {
+    [hist, stats, leads] = await Promise.all([
+      fetch("/api/history").then(r=>r.json()),
+      fetch("/api/stats").then(r=>r.json()),
+      fetch("/api/leads").then(r=>r.json()),
+    ]);
+  } catch (e){
+    $("feed").innerHTML = '<div class="empty-state bg-white border border-border-subtle rounded-xl">Could not load activity.</div>';
+    return;
+  }
+  EVENTS = hist.events || [];
+  document.querySelector('.filter-btn[data-f="all"]').click();
+
+  const c = stats.calls, em = stats.emails;
+  $("sessionOverview").innerHTML = `
+    <div class="flex justify-between items-center"><div class="flex items-center space-x-3"><span class="material-symbols-outlined text-primary">headset_mic</span><span class="text-body-base text-on-surface">Calls dialed</span></div><span class="font-headline-md text-primary">${c.dialed}</span></div>
+    <div class="flex justify-between items-center"><div class="flex items-center space-x-3"><span class="material-symbols-outlined text-ai-accent">forward_to_inbox</span><span class="text-body-base text-on-surface">Emails sent</span></div><span class="font-headline-md text-ai-accent">${em.sent}</span></div>
+    <div class="flex justify-between items-center"><div class="flex items-center space-x-3"><span class="material-symbols-outlined text-success">event_available</span><span class="text-body-base text-on-surface">Converted</span></div><span class="font-headline-md text-success">${stats.funnel.converted}</span></div>`;
+
+  const leadRows = leads.leads || [];
+  const insightBits = [];
+  if (c.answer_rate != null) insightBits.push(`Calls are getting picked up ${c.answer_rate}% of the time.`);
+  if (em.reply_rate != null) insightBits.push(`Emails see a ${em.reply_rate}% reply rate.`);
+  const topScored = [...leadRows].filter(l=>l.score!=null).sort((a,b)=>b.score-a.score)[0];
+  if (topScored) insightBits.push(`Your hottest lead right now is <b>${esc(topScored.company)}</b> at ${topScored.score}/100.`);
+  $("aiInsight").innerHTML = insightBits.length ? insightBits.join(" ") : "Not enough data yet — run a search and some outreach to unlock insights.";
+
+  const opportunities = leadRows
+    .filter(l => !(l.outreach||[]).length && l.score != null)
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,5);
+  $("opportunities").innerHTML = opportunities.length ? opportunities.map(l => `
+    <div class="p-4 hover:bg-surface-container-low transition-colors cursor-pointer flex items-center space-x-3" onclick="window.location='/leads?q=${encodeURIComponent(l.company||"")}'">
+      <div class="w-8 h-8 rounded bg-primary-fixed flex items-center justify-center text-primary font-bold text-[10px]">${esc((l.company||"?").slice(0,2).toUpperCase())}</div>
+      <div class="flex-1 overflow-hidden">
+        <p class="text-body-sm font-bold truncate">${esc(l.company||"—")}</p>
+        <p class="text-[11px] text-secondary truncate">${l.score} Score · ${esc(l.industry||"Unclassified")}</p>
+      </div>
+      <span class="w-2 h-2 rounded-full bg-success"></span>
+    </div>`).join("") : '<div class="p-4 text-secondary text-body-sm">No uncontacted high-score leads right now.</div>';
+}
+load();
+</script>
+</body>
+</html>

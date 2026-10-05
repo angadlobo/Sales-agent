@@ -28,10 +28,12 @@ from typing import Any, Dict, List, Optional
 
 from dotenv import set_key
 from flask import Flask, Response, jsonify, render_template, request
+from pydantic import BaseModel
 
-from .. import discovery, enrichment, inbox, scoring, stats, storage
+from .. import discovery, enrichment, inbox, llm, scoring, stats, storage
 from ..business_types import BUSINESS_TYPE_GROUPS, BUSINESS_TYPES
 from ..compliance import Suppression
+from .. import config as agent_config
 from ..config import CampaignConfig, EmailConfig, Settings, VoiceConfig
 from ..models import Channel, Lead, Product, QualifiedLead, Targeting
 from ..outreach import email_outreach, voice_outreach
@@ -244,6 +246,18 @@ def _config_view() -> dict:
 
     return {
         "anthropic_key_set": bool(os.getenv("ANTHROPIC_API_KEY")),
+        "llm": {
+            "provider": agent_config.llm_provider(),
+            "api_key_set": bool(
+                os.getenv("LLM_API_KEY") or os.getenv("GITHUB_TOKEN")
+                or os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+            ),
+            "base_url": os.getenv("LLM_BASE_URL") or "",
+            "model": os.getenv("SALES_AGENT_MODEL") or "",
+            "fast_model": os.getenv("SALES_AGENT_FAST_MODEL") or "",
+            "model_default": agent_config.default_model(),
+            "fast_model_default": agent_config.default_fast_model(),
+        },
         "email": {
             "host": email.host or "",
             "port": email.port,
@@ -275,6 +289,11 @@ def _apply_config(payload: dict) -> None:
     # field name in payload -> env var
     mapping = {
         "anthropic_key": "ANTHROPIC_API_KEY",
+        "llm_provider": "LLM_PROVIDER",
+        "llm_api_key": "LLM_API_KEY",
+        "llm_base_url": "LLM_BASE_URL",
+        "llm_model": "SALES_AGENT_MODEL",
+        "llm_fast_model": "SALES_AGENT_FAST_MODEL",
         "smtp_host": "SMTP_HOST",
         "smtp_port": "SMTP_PORT",
         "smtp_username": "SMTP_USERNAME",
@@ -289,12 +308,16 @@ def _apply_config(payload: dict) -> None:
         "voice_webhook_base_url": "VOICE_WEBHOOK_BASE_URL",
     }
 
+    # Blank means "leave as-is" for secrets the UI only shows masked; model and
+    # base-URL overrides are shown in full, so blank there means "clear the
+    # override and fall back to the provider default".
+    clearable = {"llm_model", "llm_fast_model", "llm_base_url"}
     ENV_PATH.touch(exist_ok=True)
     for field, env_name in mapping.items():
         if field not in payload:
             continue
         value = str(payload[field]).strip()
-        if value == "":
+        if value == "" and field not in clearable:
             continue
         os.environ[env_name] = value
         try:
@@ -325,22 +348,101 @@ def _leads_csv(qualified: List[QualifiedLead]) -> str:
     return buf.getvalue()
 
 
+def _all_leads() -> List[dict]:
+    """Every lead ever discovered, aggregated from the saved run-*.json files.
+
+    Deduped by company+email; outreach attempts are merged across runs so the
+    History panel can show the full contact record per lead.
+    """
+    rows: Dict[str, dict] = {}
+    for path in sorted(Path("data").glob("run-*.json")):  # oldest -> newest
+        try:
+            when = (
+                datetime.strptime(path.stem.replace("run-", ""), "%Y%m%d-%H%M%S")
+                .replace(tzinfo=timezone.utc)
+                .isoformat()
+            )
+        except ValueError:
+            when = None
+        try:
+            entries = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001 - one corrupt file shouldn't kill the list
+            logger.exception("Skipping unreadable run file %s", path)
+            continue
+        for ql in entries:
+            lead = ql.get("lead") or {}
+            score = ql.get("score") or {}
+            key = f"{(lead.get('company_name') or '').lower()}|{lead.get('email') or ''}"
+            prev = rows.get(key)
+            outreach = [
+                {"channel": o.get("channel"), "status": o.get("status"),
+                 "subject": o.get("subject"), "body": o.get("body"), "detail": o.get("detail")}
+                for o in (ql.get("outreach") or [])
+            ]
+            if prev:  # keep outreach attempts seen in earlier runs
+                seen = {(o["channel"], o["status"], o.get("subject")) for o in outreach}
+                outreach += [
+                    o for o in prev["outreach"]
+                    if (o["channel"], o["status"], o.get("subject")) not in seen
+                ]
+            rows[key] = {
+                "company": lead.get("company_name"),
+                "contact": lead.get("contact_name"),
+                "title": lead.get("contact_title"),
+                "email": lead.get("email"),
+                "phone": lead.get("phone"),
+                "website": lead.get("website"),
+                "location": lead.get("location"),
+                "industry": lead.get("industry"),
+                "company_size": lead.get("company_size"),
+                "revenue_range": lead.get("revenue_range"),
+                "opportunity_summary": lead.get("opportunity_summary"),
+                "intent_signals": lead.get("intent_signals") or [],
+                "score": score.get("score"),
+                "reasoning": score.get("reasoning"),
+                "buying_signals": score.get("buying_signals") or [],
+                "risks": score.get("risks") or [],
+                "breakdown": score.get("breakdown"),
+                "prediction": score.get("prediction"),
+                "recommended_channel": score.get("recommended_channel"),
+                "outreach": outreach,
+                "first_seen": (prev or {}).get("first_seen") or when,
+                "last_seen": when,
+            }
+    out = list(rows.values())
+    out.sort(key=lambda r: (r.get("last_seen") or "", r.get("score") or 0), reverse=True)
+    return out
+
+
 def create_app() -> Flask:
     app = Flask(__name__)
     # Keep curated ordering (e.g. business-type groups) instead of alphabetizing.
     app.json.sort_keys = False
 
     @app.get("/")
-    def index():
-        return render_template("index.html")
+    @app.get("/dashboard")
+    def dashboard():
+        return render_template("dashboard.html")
+
+    @app.get("/campaign")
+    def campaign():
+        return render_template("campaign.html")
+
+    @app.get("/leads")
+    def leads_page():
+        return render_template("leads.html")
+
+    @app.get("/activity")
+    def activity_page():
+        return render_template("activity.html")
+
+    @app.get("/settings")
+    def settings_page():
+        return render_template("settings.html")
 
     @app.get("/talk")
     def talk():
         return render_template("talk.html")
-
-    @app.get("/dashboard")
-    def dashboard():
-        return render_template("dashboard.html")
 
     @app.get("/api/stats")
     def api_stats():
@@ -356,9 +458,138 @@ def create_app() -> Flask:
     def business_types():
         return jsonify({"types": BUSINESS_TYPES, "groups": BUSINESS_TYPE_GROUPS})
 
+    @app.post("/api/suggest-targeting")
+    def suggest_targeting():
+        """Guess the best target industries for the described product."""
+        payload = request.get_json(force=True) or {}
+        desc = (payload.get("product_description") or "").strip()
+        if not desc:
+            return jsonify({"error": "product_description is required"}), 400
+
+        class _Suggested(BaseModel):
+            industries: List[str]
+
+        prompt = (
+            "You help a sales team pick which industries to target with cold outreach.\n\n"
+            f"Product: {payload.get('product_name') or '(unnamed)'}\n"
+            f"What it does: {desc}\n"
+            f"Ideal customer: {payload.get('ideal_customer') or 'not specified'}\n\n"
+            "From the list below, pick the 3-6 business types MOST likely to buy this. "
+            "Use entries from the list verbatim; only if something essential is missing, "
+            "add at most 2 custom types. Order from best fit to worst.\n\n"
+            "List:\n" + "\n".join(BUSINESS_TYPES)
+        )
+        try:
+            result = llm.extract(prompt, _Suggested, model=agent_config.default_fast_model())
+        except Exception as exc:  # noqa: BLE001 - surface to the UI
+            logger.exception("suggest-targeting failed")
+            return jsonify({"error": str(exc)}), 500
+        seen, out = set(), []
+        for ind in result.industries:
+            name = ind.strip()
+            if name and name.lower() not in seen:
+                seen.add(name.lower())
+                out.append(name)
+        return jsonify({"industries": out[:8]})
+
+    @app.post("/api/refine-product")
+    def refine_product():
+        """AI assist for step 1: suggest an ideal customer, or polish the
+        product description. Works from whatever the user has typed so far —
+        an empty ideal-customer field means "suggest one", a filled one means
+        "refine what I wrote"."""
+        payload = request.get_json(force=True) or {}
+        desc = (payload.get("product_description") or "").strip()
+        if not desc:
+            return jsonify({"error": "Describe your product or service first."}), 400
+        target = payload.get("target") or "description"
+
+        class _Assist(BaseModel):
+            text: str
+
+        class _PriceAssist(BaseModel):
+            text: str
+            # One-sentence note on what drives the price up/down, shown under
+            # the field. Required — optional fields get skipped by the model.
+            insight: str
+
+        name = payload.get("product_name") or "(unnamed)"
+        kind = payload.get("offering_type") or "product/service"
+        customer = (payload.get("ideal_customer") or "").strip()
+        if target == "value_props":
+            current = (payload.get("value_props") or "").strip()
+            prompt = (
+                "You help a sales team write value propositions for cold outreach.\n\n"
+                f"Product/service: {name} ({kind})\n"
+                f"What it does: {desc}\n"
+                + (f"Ideal customer: {customer}\n" if customer else "")
+                + (f"Their current draft (one per line):\n{current}\n" if current else "")
+                + "\nWrite 3-5 value props, ONE PER LINE, max ~10 words each. Each must be a "
+                "concrete benefit the buyer feels (time saved, money made, risk removed) — "
+                "and at least one should say what makes this DIFFERENT from the typical "
+                "alternative (doing it themselves, a cheaper competitor, doing nothing). "
+                + ("Keep every specific claim or number from their draft; sharpen the wording "
+                   "and add what's missing." if current else "Base them only on the description — "
+                   "do NOT invent numbers or claims.")
+                + " Plain text only: just the lines, no bullets, no numbering, no explanation."
+            )
+        elif target == "pricing":
+            current = (payload.get("price_point") or "").strip()
+            prompt = (
+                "You advise a small business on pricing for cold outreach.\n\n"
+                f"Product/service: {name} ({kind})\n"
+                f"What it does: {desc}\n"
+                + (f"Ideal customer: {customer}\n" if customer else "")
+                + (f"Their current price note: {current}\n" if current else "")
+                + "\nTheir pricing varies per client. In `text`, write ONLY a short price "
+                "range a business like this charges, in the form '$X-$Y per project' or "
+                "'$X-$Y/mo' — a realistic market ballpark. No words like 'typically' "
+                "(the UI adds that). "
+                "In `insight`, write ONE sentence (max ~25 words) on what drives the price "
+                "up or down for them (scope, size, urgency…) so the agent can explain it "
+                "to prospects. No other commentary."
+            )
+        elif target == "ideal_customer":
+            current = (payload.get("ideal_customer") or "").strip()
+            prompt = (
+                "You help a sales team define their ideal customer profile for cold outreach.\n\n"
+                f"Product/service: {name} ({kind})\n"
+                f"What it does: {desc}\n"
+                + (f"Their current draft of the ideal customer: {current}\n" if current else "")
+                + "\nWrite ONE concise ideal-customer line (max ~15 words) naming the kind of "
+                "business, rough size, and the decision-maker if obvious. "
+                + ("Improve their draft; keep anything specific they wrote."
+                   if current else "Base it only on the product description.")
+                + " Example format: 'Owner-run law firms with 2-20 attorneys'. "
+                "Plain text only — no quotes, no explanation."
+            )
+        else:
+            prompt = (
+                "You polish product descriptions used to brief an AI sales agent.\n\n"
+                f"Product/service: {name} ({kind})\n"
+                f"Their draft: {desc}\n\n"
+                "Rewrite it as 1-3 crisp sentences: what it is, who it's for, and the main "
+                "pain it solves. Keep every fact they wrote; do NOT invent features, numbers "
+                "or claims that aren't in the draft. Plain text only, no quotes or preamble."
+            )
+        schema = _PriceAssist if target == "pricing" else _Assist
+        try:
+            result = llm.extract(prompt, schema, model=agent_config.default_fast_model())
+        except Exception as exc:  # noqa: BLE001 - surface to the UI
+            logger.exception("refine-product failed")
+            return jsonify({"error": str(exc)}), 500
+        out = {"text": result.text.strip()}
+        if target == "pricing":
+            out["insight"] = result.insight.strip()
+        return jsonify(out)
+
     @app.get("/api/history")
     def history():
         return jsonify({"events": _read_activity()})
+
+    @app.get("/api/leads")
+    def api_leads():
+        return jsonify({"leads": _all_leads()})
 
     # ── Config ──────────────────────────────────────────────────────────
     @app.get("/api/config")

@@ -1,0 +1,43 @@
+<aside class="fixed left-0 top-0 h-screen w-64 flex flex-col bg-surface-container-low border-r border-border-subtle z-50">
+<div class="flex flex-col h-full py-margin-desktop space-y-4">
+  <div class="px-6 mb-8 flex items-center space-x-3">
+    <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+      <span class="material-symbols-outlined text-white text-[20px]">rocket_launch</span>
+    </div>
+    <div>
+      <h1 class="font-headline-md text-headline-md font-bold text-primary">AgentOS</h1>
+      <p class="font-label-mono text-label-mono text-secondary opacity-70">AI Sales Engine</p>
+    </div>
+  </div>
+
+  <nav class="flex-1 px-3 space-y-1">
+    <a data-nav="dashboard" href="/" class="nav-link flex items-center px-3 py-2 rounded-lg text-secondary transition-colors duration-200">
+      <span class="material-symbols-outlined mr-3">dashboard</span><span class="font-body-base">Dashboard</span>
+    </a>
+    <a data-nav="leads" href="/leads" class="nav-link flex items-center px-3 py-2 rounded-lg text-secondary transition-colors duration-200">
+      <span class="material-symbols-outlined mr-3">group</span><span class="font-body-base">Leads</span>
+    </a>
+    <a data-nav="activity" href="/activity" class="nav-link flex items-center px-3 py-2 rounded-lg text-secondary transition-colors duration-200">
+      <span class="material-symbols-outlined mr-3">history</span><span class="font-body-base">Activity</span>
+    </a>
+    <a data-nav="settings" href="/settings" class="nav-link flex items-center px-3 py-2 rounded-lg text-secondary transition-colors duration-200">
+      <span class="material-symbols-outlined mr-3">settings</span><span class="font-body-base">Settings</span>
+    </a>
+  </nav>
+
+  <div class="px-4 py-4">
+    <a href="/campaign" class="w-full py-3 px-4 bg-primary text-white rounded-xl font-bold flex items-center justify-center space-x-2 shadow-sm hover:opacity-90 active:scale-95 transition-all">
+      <span class="material-symbols-outlined text-[18px]">add</span><span>Deploy New Agent</span>
+    </a>
+  </div>
+
+  <div class="px-3 border-t border-border-subtle pt-4 space-y-1">
+    <a href="/talk" class="flex items-center px-3 py-2 text-secondary hover:text-on-surface transition-colors">
+      <span class="material-symbols-outlined mr-3">mic</span><span class="font-body-base">Talk demo</span>
+    </a>
+    <a href="https://github.com/anthropics/claude-code/issues" target="_blank" rel="noopener" class="flex items-center px-3 py-2 text-secondary hover:text-on-surface transition-colors">
+      <span class="material-symbols-outlined mr-3">help</span><span class="font-body-base">Help Center</span>
+    </a>
+  </div>
+</div>
+</aside>

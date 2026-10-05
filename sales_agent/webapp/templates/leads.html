@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leads — AgentOS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap">
+{% include "_tailwind_config.html" %}
+<style>
+{% include "_shell.css" %}
+.rot180 { transform: rotate(180deg); }
+</style>
+</head>
+<body class="bg-surface-muted text-on-surface antialiased">
+{% include "_sidebar.html" %}
+{% include "_topbar.html" %}
+
+<main class="ml-64 mt-16 p-margin-desktop bg-surface-muted min-h-screen">
+  <div class="flex justify-between items-end mb-8 flex-wrap gap-4">
+    <div>
+      <div class="flex items-center gap-2 text-secondary mb-2 font-label-mono text-[11px] uppercase">
+        <span>Workspace</span><span class="material-symbols-outlined text-xs">chevron_right</span><span class="text-primary font-bold">Lead Intelligence</span>
+      </div>
+      <h2 class="font-display-lg text-display-lg text-on-surface">Qualified Leads</h2>
+    </div>
+    <div class="flex gap-3 flex-wrap">
+      <select id="fltSort" class="border border-border-subtle bg-white rounded-lg px-3 py-2 text-body-sm">
+        <option value="score_desc">Rank: Highest score first</option>
+        <option value="recent">Rank: Most recent</option>
+        <option value="score_asc">Rank: Lowest score first</option>
+      </select>
+      <select id="fltIndustry" class="border border-border-subtle bg-white rounded-lg px-3 py-2 text-body-sm">
+        <option value="">All industries</option>
+      </select>
+      <input id="leadSearch" placeholder="Search company, contact, email…" class="border border-border-subtle bg-white rounded-lg px-3 py-2 text-body-sm w-64">
+      <button id="exportBtn" class="bg-primary-container text-on-primary px-4 py-2 rounded-lg font-bold text-body-base hover:opacity-90 transition-opacity">Export CSV</button>
+    </div>
+  </div>
+
+  <div id="statsGrid" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8"></div>
+  <div id="tableWrap" class="bg-white rounded-xl border border-border-subtle shadow-sm overflow-hidden">
+    <div class="empty-state">Loading…</div>
+  </div>
+</main>
+
+<div id="toasts" class="fixed right-4 bottom-4 flex flex-col gap-2 z-50"></div>
+
+<script src="{{ url_for('static', filename='shell.js') }}"></script>
+<script>
+const $ = id => document.getElementById(id);
+function esc(t){ const d=document.createElement("div"); d.textContent=(t==null?"":t); return d.innerHTML; }
+const fmt = n => (n==null ? "—" : Number(n).toLocaleString());
+function scoreBadgeClass(s){ return s>=65 ? "bg-primary-fixed/30 text-primary" : s>=40 ? "bg-warning/10 text-warning" : "bg-surface-container-highest text-secondary"; }
+function initials(name){ return (name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase() || "?"; }
+
+let LEADS = [], PAGE = 1;
+const PAGE_SIZE = 10;
+
+function primaryIntent(l){
+  if ((l.intent_signals||[]).length) return l.intent_signals[0].replace(/^(STRONG|MEDIUM|WEAK):\s*/i, "");
+  if (l.opportunity_summary) return l.opportunity_summary;
+  return "No intent signal captured yet";
+}
+
+function renderStats(){
+  const total = LEADS.length;
+  const highIntent = LEADS.filter(l => (l.score||0) >= 80).length;
+  const contacted = LEADS.filter(l => (l.outreach||[]).length > 0).length;
+  const avg = total ? Math.round(LEADS.reduce((a,l)=>a+(l.score||0),0)/total) : 0;
+  $("statsGrid").innerHTML = `
+    <div class="bg-white p-5 rounded-xl border border-border-subtle shadow-sm">
+      <span class="text-secondary font-label-mono text-[10px] uppercase">Total Leads</span>
+      <div class="text-display-lg font-display-lg mt-2">${fmt(total)}</div>
+    </div>
+    <div class="bg-white p-5 rounded-xl border border-border-subtle shadow-sm">
+      <span class="text-secondary font-label-mono text-[10px] uppercase">High Intent (80+)</span>
+      <div class="text-display-lg font-display-lg mt-2">${fmt(highIntent)}</div>
+    </div>
+    <div class="bg-white p-5 rounded-xl border border-border-subtle shadow-sm">
+      <span class="text-secondary font-label-mono text-[10px] uppercase">Contacted</span>
+      <div class="text-display-lg font-display-lg mt-2">${fmt(contacted)}</div>
+    </div>
+    <div class="bg-white p-5 rounded-xl border border-border-subtle shadow-sm">
+      <span class="text-secondary font-label-mono text-[10px] uppercase">Avg. Lead Score</span>
+      <div class="flex items-end justify-between mt-2">
+        <span class="text-display-lg font-display-lg">${fmt(avg)}</span>
+        <div class="w-24 h-1.5 bg-surface-container-high rounded-full overflow-hidden mb-2"><div class="bg-primary h-full" style="width:${avg}%"></div></div>
+      </div>
+    </div>`;
+}
+
+function ruleBar(label, value){
+  return `<div>
+    <div class="flex justify-between text-[11px] mb-1"><span class="text-secondary uppercase">${esc(label)}</span><span class="font-bold">${value}/100</span></div>
+    <div class="w-full h-1.5 bg-surface-container-high rounded-full"><div class="bg-primary h-full" style="width:${value}%"></div></div>
+  </div>`;
+}
+
+function expandedRow(l, rowId){
+  const b = l.breakdown, pr = l.prediction;
+  const signals = (l.intent_signals||[]).slice(0,4);
+  return `<tr class="bg-surface-container-lowest border-l-4 border-primary" id="${rowId}">
+    <td class="px-6 py-8" colspan="5">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="space-y-4">
+          <h4 class="font-headline-md text-sm text-primary flex items-center gap-2"><span class="material-symbols-outlined text-sm">psychology</span> Why this lead?</h4>
+          <p class="text-body-sm text-on-surface leading-relaxed">${esc(l.reasoning || l.opportunity_summary || "No AI reasoning captured for this lead yet.")}</p>
+          ${signals.length ? `<div class="flex gap-2 flex-wrap">${signals.map(s=>`<span class="bg-success/10 text-success text-[10px] font-bold px-2 py-1 rounded border border-success/20">${esc(s)}</span>`).join("")}</div>` : ""}
+          ${(l.risks||[]).length ? `<div class="mt-2"><b class="text-[11px] uppercase text-secondary">Risks</b><ul class="text-body-sm text-on-surface-variant list-disc ml-4 mt-1">${l.risks.map(r=>`<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
+        </div>
+        <div class="space-y-4">
+          <h4 class="font-headline-md text-sm text-primary">Weighted Rubric Score</h4>
+          ${b ? `<div class="space-y-3">
+            ${ruleBar("Need", b.need)}
+            ${ruleBar("Buying Intent", b.buying_intent)}
+            ${ruleBar("Budget", b.budget)}
+            ${ruleBar("Urgency", b.urgency)}
+            ${ruleBar("Accessibility", b.accessibility)}
+          </div>` : '<div class="text-body-sm text-secondary">No rubric breakdown available for this run.</div>'}
+          ${l.recommended_channel ? `<div class="text-body-sm text-on-surface-variant mt-2"><b>Best first touch:</b> ${esc(l.recommended_channel)}</div>` : ""}
+        </div>
+        <div class="bg-surface p-4 rounded-lg border border-border-subtle flex flex-col justify-center items-center text-center">
+          ${pr ? `
+          <div class="text-[10px] font-label-mono text-secondary uppercase mb-2">Meeting Conversion Prediction</div>
+          <div class="text-4xl font-bold text-ai-accent mb-1">${pr.meeting_probability}%</div>
+          <div class="text-body-sm text-secondary">Reply ${pr.reply_probability}% · Conversion ${pr.conversion_probability}%<br>Confidence: ${esc(pr.confidence)}</div>
+          ${pr.estimated_deal_value ? `<div class="text-body-sm text-secondary mt-2">Est. value: ${esc(pr.estimated_deal_value)}</div>` : ""}
+          ` : '<div class="text-body-sm text-secondary">No conversion prediction available for this run.</div>'}
+        </div>
+      </div>
+    </td>
+  </tr>`;
+}
+
+function renderTable(){
+  const q = $("leadSearch").value.trim().toLowerCase();
+  const industryFilter = $("fltIndustry").value;
+  const sort = $("fltSort").value;
+
+  let rows = LEADS.filter(l => {
+    if (industryFilter && (l.industry||"") !== industryFilter) return false;
+    if (!q) return true;
+    return [l.company, l.contact, l.title, l.email, l.phone, l.location, l.industry]
+      .filter(Boolean).join(" ").toLowerCase().includes(q);
+  });
+  if (sort === "score_desc") rows.sort((a,b)=>(b.score||0)-(a.score||0));
+  else if (sort === "score_asc") rows.sort((a,b)=>(a.score||0)-(b.score||0));
+  else rows.sort((a,b)=>(b.last_seen||"").localeCompare(a.last_seen||""));
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  PAGE = Math.min(PAGE, totalPages);
+  const pageRows = rows.slice((PAGE-1)*PAGE_SIZE, PAGE*PAGE_SIZE);
+
+  if (!rows.length){
+    $("tableWrap").innerHTML = '<div class="empty-state">No leads match. <a href="/campaign" class="text-primary hover:underline">Deploy an agent</a> to find some, or clear your filters.</div>';
+    return;
+  }
+
+  let html = `<table class="w-full text-left border-collapse">
+    <thead class="bg-surface-container-low/50 border-b border-border-subtle">
+      <tr>
+        <th class="px-6 py-4 font-label-mono text-[11px] uppercase text-secondary tracking-wider">Lead Name</th>
+        <th class="px-6 py-4 font-label-mono text-[11px] uppercase text-secondary tracking-wider">Industry</th>
+        <th class="px-6 py-4 font-label-mono text-[11px] uppercase text-secondary tracking-wider">Lead Score</th>
+        <th class="px-6 py-4 font-label-mono text-[11px] uppercase text-secondary tracking-wider">Primary Intent Signal</th>
+        <th class="px-6 py-4 font-label-mono text-[11px] uppercase text-secondary tracking-wider w-20">Actions</th>
+      </tr>
+    </thead><tbody class="divide-y divide-border-subtle">`;
+
+  pageRows.forEach((l, i) => {
+    const rowId = "row-" + i;
+    const s = l.score == null ? 0 : l.score;
+    html += `<tr class="group hover:bg-surface-muted cursor-pointer transition-colors" data-toggle="${rowId}">
+      <td class="px-6 py-4">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded bg-surface-container-highest flex items-center justify-center font-bold text-primary">${esc(initials(l.company))}</div>
+          <div>
+            <div class="font-headline-md text-body-base font-bold text-on-surface">${esc(l.company||"—")}</div>
+            <div class="text-body-sm text-secondary">${esc(l.contact||"No contact found")}${l.title?" · "+esc(l.title):""}</div>
+          </div>
+        </div>
+      </td>
+      <td class="px-6 py-4"><span class="bg-secondary-container text-on-secondary-container text-[11px] font-bold px-2 py-1 rounded">${esc(l.industry||"Unclassified")}</span></td>
+      <td class="px-6 py-4"><div class="inline-flex items-center gap-2 ${scoreBadgeClass(s)} px-3 py-1 rounded-full"><span class="font-label-mono text-sm font-bold">${l.score==null?"—":s}</span><span class="material-symbols-outlined text-xs">auto_awesome</span></div></td>
+      <td class="px-6 py-4"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-ai-accent text-lg">near_me</span><span class="text-body-sm text-on-surface">${esc(primaryIntent(l))}</span></div></td>
+      <td class="px-6 py-4 text-right"><span class="material-symbols-outlined text-secondary transition-transform duration-300" id="icon-${rowId}">expand_more</span></td>
+    </tr>` + expandedRow(l, rowId).replace('<tr class="bg-surface-container-lowest border-l-4 border-primary"', '<tr class="hidden bg-surface-container-lowest border-l-4 border-primary"');
+  });
+
+  html += `</tbody></table>
+    <div class="px-6 py-4 border-t border-border-subtle bg-surface-container-low/30 flex justify-between items-center">
+      <span class="text-body-sm text-secondary">Showing ${pageRows.length} of ${rows.length} leads</span>
+      <div class="flex gap-2 items-center">
+        <button id="prevPage" class="p-2 border border-border-subtle rounded hover:bg-white text-secondary transition-colors" ${PAGE<=1?"disabled":""}><span class="material-symbols-outlined">chevron_left</span></button>
+        <span class="text-body-sm text-secondary">${PAGE} / ${totalPages}</span>
+        <button id="nextPage" class="p-2 border border-border-subtle rounded hover:bg-white text-secondary transition-colors" ${PAGE>=totalPages?"disabled":""}><span class="material-symbols-outlined">chevron_right</span></button>
+      </div>
+    </div>`;
+
+  $("tableWrap").innerHTML = html;
+  $("tableWrap").querySelectorAll("tr[data-toggle]").forEach(tr => tr.onclick = () => {
+    const id = tr.dataset.toggle;
+    const row = document.getElementById(id);
+    const icon = document.getElementById("icon-" + id);
+    row.classList.toggle("hidden");
+    if (icon) icon.classList.toggle("rot180");
+  });
+  const prev = $("prevPage"), next = $("nextPage");
+  if (prev) prev.onclick = () => { PAGE--; renderTable(); };
+  if (next) next.onclick = () => { PAGE++; renderTable(); };
+}
+
+function populateIndustries(){
+  const industries = [...new Set(LEADS.map(l => l.industry).filter(Boolean))].sort();
+  $("fltIndustry").innerHTML = '<option value="">All industries</option>' +
+    industries.map(i => `<option value="${esc(i)}">${esc(i)}</option>`).join("");
+}
+
+async function load(){
+  try {
+    const d = await (await fetch("/api/leads")).json();
+    LEADS = d.leads || [];
+  } catch (e){
+    $("tableWrap").innerHTML = '<div class="empty-state">Could not load leads.</div>';
+    return;
+  }
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("q")) $("leadSearch").value = params.get("q");
+  populateIndustries();
+  renderStats();
+  renderTable();
+}
+["leadSearch","fltIndustry","fltSort"].forEach(id => $(id).addEventListener("input", () => { PAGE=1; renderTable(); }));
+$("exportBtn").onclick = () => {
+  const rows = [["company","contact","title","email","phone","location","industry","score"]];
+  LEADS.forEach(l => rows.push([l.company,l.contact,l.title,l.email,l.phone,l.location,l.industry,l.score]));
+  const csv = rows.map(r => r.map(v => `"${(v==null?"":String(v)).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "leads.csv";
+  a.click();
+};
+load();
+</script>
+</body>
+</html>

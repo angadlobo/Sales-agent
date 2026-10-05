@@ -3,192 +3,227 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dashboard — Sales Agent</title>
-<style>
-  :root { --bg:#0f1217; --card:#171c24; --ink:#e8ebf0; --mut:#8b94a3; --acc:#4f8cff; --acc2:#7b5cff; --ok:#3ecf8e; --warn:#f5b14c; --bad:#e5645f; --line:#232a35; --field:#0f141b; --fieldline:#2c3543; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
-  header { display:flex; align-items:center; gap:14px; padding:14px 28px; border-bottom:1px solid var(--line); position:sticky; top:0; background:rgba(15,18,23,.92); backdrop-filter:blur(8px); z-index:5; }
-  header h1 { font-size:18px; margin:0; background:linear-gradient(90deg,var(--acc),var(--acc2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
-  header .spacer { margin-left:auto; }
-  header a { color:var(--acc); text-decoration:none; padding:4px 8px; border-radius:6px; }
-  header a:hover { background:#1d2530; }
-  main { max-width:1100px; margin:0 auto; padding:22px 20px 80px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-bottom:18px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; box-shadow:0 4px 24px rgba(0,0,0,.25); }
-  .stat .n { font-size:34px; font-weight:700; line-height:1.1; }
-  .stat .l { color:var(--mut); font-size:12.5px; margin-top:4px; letter-spacing:.02em; }
-  .stat .sub { color:var(--mut); font-size:11.5px; margin-top:6px; }
-  .n.ok{color:var(--ok)} .n.warn{color:var(--warn)} .n.bad{color:var(--bad)} .n.acc{color:var(--acc)}
-  h2 { font-size:15px; margin:26px 0 12px; }
-  /* funnel */
-  .fstage { margin-bottom:10px; }
-  .fstage .top { display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; }
-  .fstage .top b { font-weight:600; }
-  .fstage .top span { color:var(--mut); }
-  .bar { height:22px; border-radius:6px; background:var(--field); border:1px solid var(--fieldline); overflow:hidden; }
-  .bar i { display:block; height:100%; border-radius:5px; background:linear-gradient(90deg,var(--acc),var(--acc2)); min-width:2px; transition:width .6s ease; }
-  .fstage.ok .bar i { background:linear-gradient(90deg,#2aa873,var(--ok)); }
-  /* breakdowns */
-  .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; }
-  .kv { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
-  .kv:last-child { border-bottom:0; }
-  .kv span { color:var(--mut); }
-  .kv b { font-weight:600; }
-  .note { font-size:12px; color:var(--mut); margin-top:10px; line-height:1.5; }
-  .pill { display:inline-block; padding:2px 9px; border-radius:99px; font-size:11px; background:#232a35; color:var(--mut); }
-  .pill.converted{background:#123524;color:var(--ok)} .pill.interested,.pill.follow_up{background:#16273f;color:var(--acc)}
-  .pill.not_interested{background:#3a2c10;color:var(--warn)} .pill.opt_out{background:#3a1716;color:var(--bad)} .pill.unclear,.pill.other,.pill.question{background:#232a35;color:var(--mut)}
-  .syncbtn { margin-top:12px; width:100%; padding:9px; border:1px solid var(--fieldline); border-radius:8px; background:#1d2530; color:var(--ink); font:inherit; font-size:13px; cursor:pointer; }
-  .syncbtn:hover:not(:disabled) { border-color:var(--acc); }
-  .syncbtn:disabled { opacity:.5; cursor:wait; }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { color:var(--mut); font-weight:500; font-size:12px; }
-  .empty { color:var(--mut); font-size:14px; padding:36px 0; text-align:center; }
-</style>
+<title>Dashboard — AgentOS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap">
+{% include "_tailwind_config.html" %}
+<style>{% include "_shell.css" %}</style>
 </head>
-<body>
-<header>
-  <h1>📊 Dashboard</h1>
-  <span class="spacer"></span>
-  <a href="/">🔎 Find leads</a>
-  <a href="/talk">🎙 Talk to the agent</a>
-</header>
-<main>
-  <div id="content"><div class="empty">Loading…</div></div>
+<body class="bg-background text-on-surface font-body-base antialiased">
+{% include "_sidebar.html" %}
+{% include "_topbar.html" %}
+
+<main class="ml-64 mt-16 p-margin-desktop max-w-[1440px] mx-auto min-h-screen">
+  <div class="mb-8">
+    <h2 class="font-display-lg text-display-lg text-on-surface mb-1">Sales Performance Dashboard</h2>
+    <p class="text-secondary font-body-base">Monitoring autonomous agent outreach and pipeline health.</p>
+  </div>
+
+  <div id="content"><div class="empty-state">Loading…</div></div>
 </main>
+
+<div id="toasts" class="fixed right-4 bottom-4 flex flex-col gap-2 z-50"></div>
+
+<script src="{{ url_for('static', filename='shell.js') }}"></script>
 <script>
 const $ = id => document.getElementById(id);
 function esc(t){ const d=document.createElement("div"); d.textContent=(t==null?"":t); return d.innerHTML; }
-const fmt = n => (n==null ? "—" : n.toLocaleString());
+const fmt = n => (n==null ? "—" : Number(n).toLocaleString());
+function scoreClass(s){ return s>=65 ? "text-success" : s>=40 ? "text-warning" : "text-secondary"; }
 
-function statCard(n, label, cls="", sub=""){
-  return `<div class="card stat"><div class="n ${cls}">${fmt(n)}</div><div class="l">${label}</div>${sub?`<div class="sub">${sub}</div>`:""}</div>`;
+const EV_ICON = {
+  search_started: "search", search_completed: "task_alt", search_failed: "error",
+  email_outreach: "mail", call_placed: "call", call_started: "call",
+  call_ended: "call_end", email_reply: "forum", voice_demo_turn: "mic", inbox_sync: "inbox",
+};
+function eventLine(e){
+  switch (e.event){
+    case "search_started":   return `Searching for <b>${esc(e.industries)}</b> in <b>${esc(e.location)}</b>`;
+    case "search_completed": return `Search finished — found <b>${esc(e.leads_found)}</b> lead(s)`;
+    case "search_failed":    return `Search failed: ${esc(e.error)}`;
+    case "email_outreach":   return `${e.live?"Sent":"Drafted"} email to <b>${esc(e.company)}</b>${e.subject?`: "${esc(e.subject)}"`:""}`;
+    case "call_placed":      return `${e.live?"Called":"Prepared call to"} <b>${esc(e.company)}</b> — ${esc(e.status)}`;
+    case "call_started":     return `Call connected with <b>${esc(e.company)}</b>`;
+    case "call_ended":       return `Call with <b>${esc(e.company)}</b> ended (${esc(e.reason)})`;
+    case "email_reply":      return `<b>${esc(e.company||e.from)}</b> replied — ${esc((e.classification||"").replace("_"," "))}`;
+    case "voice_demo_turn":  return `Voice demo turn (${esc(e.company)})`;
+    case "inbox_sync":       return `Checked inbox — ${esc(e.new_replies)} new repl${e.new_replies===1?"y":"ies"}`;
+    default: return esc(e.event);
+  }
 }
-function kv(label, value){
-  return `<div class="kv"><span>${label}</span><b>${fmt(value)}</b></div>`;
+function timeAgo(iso){
+  if (!iso) return "";
+  const s = Math.floor((Date.now() - new Date(iso).getTime())/1000);
+  if (s < 60) return s+"s ago";
+  if (s < 3600) return Math.floor(s/60)+"m ago";
+  if (s < 86400) return Math.floor(s/3600)+"h ago";
+  return Math.floor(s/86400)+"d ago";
 }
-function funnelStage(label, n, max, extra="", cls=""){
-  const w = max > 0 ? Math.max(2, Math.round(100*n/max)) : 2;
-  return `<div class="fstage ${cls}"><div class="top"><b>${label}</b><span>${fmt(n)}${extra}</span></div><div class="bar"><i style="width:${w}%"></i></div></div>`;
+
+function statCard(icon, label, value, sub, colorClass){
+  return `
+  <div class="bg-white border border-border-subtle rounded-xl p-5 flex items-center justify-between shadow-sm">
+    <div>
+      <p class="font-label-mono text-label-mono text-secondary mb-1">${label}</p>
+      <h4 class="font-display-lg text-display-lg">${fmt(value)}</h4>
+      <div class="flex items-center text-secondary text-body-sm mt-1">${esc(sub)}</div>
+    </div>
+    <div class="w-12 h-12 ${colorClass} rounded-full flex items-center justify-center">
+      <span class="material-symbols-outlined">${icon}</span>
+    </div>
+  </div>`;
+}
+
+function funnelRow(label, value, max, indent, colorClasses){
+  const pct = max > 0 ? Math.max(2, Math.round(100*value/max)) : 2;
+  return `
+  <div class="relative group cursor-default" style="margin-left:${indent}%; width:${100-indent}%">
+    <div class="w-full h-14 ${colorClasses.bg} border ${colorClasses.border} rounded-lg flex items-center px-6 transition-all group-hover:brightness-95">
+      <span class="font-label-mono text-label-mono ${colorClasses.text} w-28 uppercase">${esc(label)}</span>
+      <div class="flex-1 h-3 ${colorClasses.track} rounded-full overflow-hidden mx-4">
+        <div class="h-full ${colorClasses.bar} rounded-full" style="width:${pct}%"></div>
+      </div>
+      <span class="font-headline-md text-headline-md ${colorClasses.text} w-24 text-right">${fmt(value)}</span>
+    </div>
+  </div>`;
 }
 
 async function load(){
-  let s;
-  try { s = await (await fetch("/api/stats")).json(); }
-  catch(e){ $("content").innerHTML = '<div class="empty">Could not load stats.</div>'; return; }
-
-  const f = s.funnel, c = s.calls, em = s.emails, o = s.outcomes, cv = s.conversion;
+  let s, leadsResp, histResp;
+  try {
+    [s, leadsResp, histResp] = await Promise.all([
+      fetch("/api/stats").then(r=>r.json()),
+      fetch("/api/leads").then(r=>r.json()),
+      fetch("/api/history").then(r=>r.json()),
+    ]);
+  } catch (e){
+    $("content").innerHTML = '<div class="empty-state">Could not load dashboard data.</div>';
+    return;
+  }
+  const f = s.funnel, c = s.calls, em = s.emails, cv = s.conversion;
+  const leads = leadsResp.leads || [];
+  const events = histResp.events || [];
   const anyData = f.leads_found || f.contacted || s.searches;
+
   if (!anyData){
-    $("content").innerHTML = '<div class="empty">No activity yet — run a lead search and some outreach first, then come back.<br><br><a href="/" style="color:var(--acc)">Find leads →</a></div>';
+    $("content").innerHTML = `
+      <div class="bg-white border border-border-subtle rounded-xl p-16 text-center text-secondary">
+        <span class="material-symbols-outlined text-5xl text-outline mb-3 block">rocket_launch</span>
+        No activity yet — deploy an agent to find and contact your first leads.
+        <div class="mt-4"><a href="/campaign" class="inline-flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg font-bold hover:opacity-90">
+          <span class="material-symbols-outlined text-[18px]">add</span> Deploy New Agent
+        </a></div>
+      </div>`;
     return;
   }
   const max = Math.max(f.leads_found, f.contacted, f.engaged, f.converted, 1);
 
+  // industry breakdown from real leads (for the insight card)
+  const byIndustry = {};
+  leads.forEach(l => {
+    const ind = l.industry || "Unclassified";
+    if (!byIndustry[ind]) byIndustry[ind] = {count:0, total:0};
+    byIndustry[ind].count++;
+    byIndustry[ind].total += (l.score||0);
+  });
+  const industries = Object.entries(byIndustry)
+    .map(([name, v]) => ({name, count:v.count, avg: Math.round(v.total/v.count)}))
+    .sort((a,b) => b.count - a.count).slice(0, 4);
+  const bestIndustry = [...industries].sort((a,b)=>b.avg-a.avg)[0];
+
+  const recentEvents = events.slice(0, 5);
+  const dailyMax = Math.max(...(s.daily_activity||[]).map(d=>d.count), 1);
+
   $("content").innerHTML = `
-    <div class="grid">
-      ${statCard(f.leads_found, "Leads discovered", "acc", s.searches + " search" + (s.searches===1?"":"es") + " run")}
-      ${statCard(f.contacted, "Contacted", "", s.companies_contacted + " unique companies")}
-      ${statCard(c.answered, "Picked up", "warn", c.answer_rate!=null ? c.answer_rate + "% answer rate" : "no live calls yet")}
-      ${statCard(f.converted, "Converted", "ok", cv.rate!=null ? cv.rate + "% of classified calls" : "no classified calls yet")}
-    </div>
-
-    <div class="card">
-      <h2 style="margin-top:0">Funnel</h2>
-      ${funnelStage("Discovered", f.leads_found, max)}
-      ${funnelStage("Contacted (email or call)", f.contacted, max)}
-      ${funnelStage("Picked up the phone", f.engaged, max)}
-      ${funnelStage("Converted", f.converted, max, "", "ok")}
-    </div>
-
-    <h2>Breakdowns</h2>
-    <div class="cols">
-      <div class="card">
-        <b>📞 Calls</b>
-        ${kv("Dialed (live)", c.dialed)}
-        ${kv("Picked up", c.answered)}
-        ${kv("Did not pick up", c.no_answer)}
-        ${kv("Conversations completed", c.completed)}
-        ${kv("Total spoken exchanges", c.turns)}
-        ${kv("Drafted only (dry-run)", c.prepared)}
-        ${kv("Failed to dial", c.failed)}
+    <div class="grid grid-cols-12 gap-gutter">
+      <div class="col-span-12 lg:col-span-8 bg-white border border-border-subtle rounded-xl p-6 relative overflow-hidden flex flex-col">
+        <div class="flex justify-between items-center mb-8 relative z-10">
+          <h3 class="font-headline-md text-headline-md flex items-center">
+            <span class="material-symbols-outlined mr-2 text-primary">filter_alt</span> Conversion Funnel
+          </h3>
+          <span class="font-label-mono text-label-mono bg-surface-container text-secondary px-2 py-1 rounded">All time</span>
+        </div>
+        <div class="flex-1 flex flex-col justify-center space-y-4 relative z-10">
+          ${funnelRow("Leads", f.leads_found, max, 0, {bg:"bg-primary-container/10", border:"border-primary/20", text:"text-primary", track:"bg-primary/10", bar:"bg-primary"})}
+          ${funnelRow("Contacted", f.contacted, max, 5, {bg:"bg-secondary-container/10", border:"border-secondary/20", text:"text-secondary", track:"bg-secondary/10", bar:"bg-secondary"})}
+          ${funnelRow("Engaged", f.engaged, max, 15, {bg:"bg-ai-accent/10", border:"border-ai-accent/20", text:"text-ai-accent", track:"bg-ai-accent/10", bar:"bg-ai-accent"})}
+          ${funnelRow("Converted", f.converted, max, 30, {bg:"bg-success/10", border:"border-success/20", text:"text-success", track:"bg-success/10", bar:"bg-success"})}
+        </div>
       </div>
-      <div class="card">
-        <b>✉️ Emails</b>
-        ${kv("Sent", em.sent)}
-        ${em.replies_tracked ? kv("Replied", em.replies) : ""}
-        ${em.replies_tracked ? kv("No response yet", em.no_response) : ""}
-        ${em.replies_tracked && em.reply_rate!=null ? kv("Reply rate", em.reply_rate + "%") : ""}
-        ${kv("Drafted only (dry-run)", em.drafted)}
-        ${kv("Skipped (no/invalid address, suppressed)", em.skipped)}
-        ${kv("Failed to send", em.failed)}
-        ${em.replies_tracked ? `
-        <div style="margin-top:10px"><b style="font-size:12.5px">Reply types</b>
-          ${kv("Interested", em.reply_breakdown.interested)}
-          ${kv("Asked a question", em.reply_breakdown.question)}
-          ${kv("Follow up later", em.reply_breakdown.follow_up)}
-          ${kv("Not interested", em.reply_breakdown.not_interested)}
-          ${kv("Unsubscribed (auto-suppressed)", em.reply_breakdown.opt_out)}
-          ${kv("Auto-reply / other", em.reply_breakdown.other)}
-        </div>` : `
-        <div class="note">Reply tracking is off until the inbox connector runs. For Gmail your existing SMTP app password works — just hit the button below.</div>`}
-        <button class="syncbtn" id="syncInbox">📥 Check for replies now</button>
-        <div class="note" id="syncStatus"></div>
-      </div>
-      <div class="card">
-        <b>🎯 Call outcomes</b>
-        ${kv("Converted", o.converted)}
-        ${kv("Interested", o.interested)}
-        ${kv("Asked to follow up later", o.follow_up)}
-        ${kv("Not interested", o.not_interested)}
-        ${kv("Asked not to be contacted", o.opt_out)}
-        ${kv("Unclear / cut off", o.unclear)}
-        <div class="note">Each finished call's transcript is classified automatically. Opt-outs should be added to your suppression list.</div>
-      </div>
-    </div>
 
-    <h2>Recent call results</h2>
-    <div class="card">
-      ${ (s.recent_outcomes||[]).length ? `
-      <table>
-        <tr><th>When</th><th>Company</th><th>Outcome</th><th>What happened</th></tr>
-        ${s.recent_outcomes.map(r=>`<tr>
-          <td>${r.time?esc(new Date(r.time).toLocaleString()):"—"}</td>
-          <td>${esc(r.company)}</td>
-          <td><span class="pill ${esc(r.outcome)}">${esc(r.outcome.replace("_"," "))}</span></td>
-          <td>${esc(r.summary||"")}</td>
-        </tr>`).join("")}
-      </table>` : '<div class="empty">No finished calls yet. Outcomes appear here after each call ends.</div>'}
-    </div>
+      <div class="col-span-12 lg:col-span-4 flex flex-col gap-gutter">
+        ${statCard("call", "CALLS MADE", c.dialed + c.prepared, c.answered + " picked up" + (c.answer_rate!=null ? ` (${c.answer_rate}%)` : ""), "bg-primary/5 text-primary")}
+        ${statCard("mail", "EMAILS SENT", em.sent + em.drafted, em.replies_tracked ? em.replies + " replies" : "reply tracking off", "bg-primary/5 text-primary")}
+        ${statCard("verified", "SUCCESSFUL OUTCOMES", f.converted, cv.rate!=null ? cv.rate + "% conversion rate" : "no classified calls yet", "bg-ai-accent/5 text-ai-accent")}
+      </div>
 
-    <h2>Recent email replies</h2>
-    <div class="card">
-      ${ (s.recent_replies||[]).length ? `
-      <table>
-        <tr><th>When</th><th>From</th><th>Type</th><th>What they said</th></tr>
-        ${s.recent_replies.map(r=>`<tr>
-          <td>${r.time?esc(new Date(r.time).toLocaleString()):"—"}</td>
-          <td>${esc(r.company)}</td>
-          <td><span class="pill ${esc(r.classification)}">${esc((r.classification||"").replace("_"," "))}</span></td>
-          <td>${esc(r.summary||"")}</td>
-        </tr>`).join("")}
-      </table>` : '<div class="empty">No replies recorded yet. Replies appear after an inbox check finds them.</div>'}
+      <div class="col-span-12 bg-white border border-border-subtle rounded-xl p-6 shadow-sm">
+        <div class="flex justify-between items-center mb-8">
+          <div>
+            <h3 class="font-headline-md text-headline-md">Daily Outreach Volume</h3>
+            <p class="text-body-sm text-secondary">Emails + calls placed, last 7 days</p>
+          </div>
+        </div>
+        <div class="h-52 w-full flex items-end justify-between px-2 pt-4 gap-2">
+          ${(s.daily_activity||[]).map(d => `
+            <div class="flex flex-col items-center flex-1 group relative">
+              <div class="w-full max-w-[40px] ${d.count ? 'bg-primary' : 'bg-surface-container-highest'} rounded-t-lg transition-all duration-300"
+                   style="height:${Math.max(4, Math.round(100*d.count/dailyMax))}%"></div>
+              <span class="mt-4 font-label-mono text-label-mono text-secondary">${esc(d.label)}</span>
+              <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-on-surface text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity">${fmt(d.count)}</div>
+            </div>`).join("")}
+        </div>
+      </div>
+
+      <div class="col-span-12 lg:col-span-7 bg-white border border-border-subtle rounded-xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-subtle bg-surface-muted/50 flex justify-between items-center">
+          <h3 class="font-headline-md text-headline-md">Live Activity Feed</h3>
+          <a href="/activity" class="font-label-mono text-label-mono text-primary hover:underline">View all →</a>
+        </div>
+        <div class="p-0">
+          ${recentEvents.length ? recentEvents.map(e => `
+          <div class="p-6 border-b border-border-subtle hover:bg-surface-muted transition-colors flex items-start space-x-4 last:border-b-0">
+            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
+              <span class="material-symbols-outlined text-[20px]">${EV_ICON[e.event] || "smart_toy"}</span>
+            </div>
+            <div class="flex-1">
+              <div class="flex justify-between items-start mb-1">
+                <p class="text-body-sm text-on-surface leading-relaxed">${eventLine(e)}</p>
+                <span class="font-label-mono text-label-mono text-secondary whitespace-nowrap ml-3">${timeAgo(e.time)}</span>
+              </div>
+            </div>
+          </div>`).join("") : '<div class="p-10 text-center text-secondary text-body-sm">No activity recorded yet.</div>'}
+        </div>
+      </div>
+
+      <div class="col-span-12 lg:col-span-5 bg-white border border-border-subtle rounded-xl p-6 shadow-sm">
+        <h3 class="font-headline-md text-headline-md mb-6">Leads by Industry</h3>
+        <div class="space-y-6">
+          ${industries.length ? industries.map(ind => `
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-body-base font-bold">${esc(ind.name)}</span>
+              <span class="font-label-mono text-label-mono ${scoreClass(ind.avg)}">avg score ${ind.avg}</span>
+            </div>
+            <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden">
+              <div class="h-full bg-primary rounded-full" style="width:${Math.min(100, ind.avg)}%"></div>
+            </div>
+            <div class="flex justify-between mt-1 text-[11px] text-secondary uppercase font-bold">
+              <span>${ind.count} lead${ind.count===1?"":"s"}</span>
+            </div>
+          </div>`).join("") : '<div class="text-secondary text-body-sm">No leads discovered yet.</div>'}
+        </div>
+        ${bestIndustry ? `
+        <div class="mt-8 p-4 bg-surface-muted rounded-lg border border-border-subtle">
+          <div class="flex items-center mb-2">
+            <span class="material-symbols-outlined text-primary mr-2 text-[18px]">auto_awesome</span>
+            <span class="font-label-mono text-label-mono font-bold text-primary uppercase">AI Insight</span>
+          </div>
+          <p class="text-body-sm text-on-surface-variant"><b>${esc(bestIndustry.name)}</b> leads score highest on average (${bestIndustry.avg}/100) across ${bestIndustry.count} discovered so far.</p>
+        </div>` : ""}
+      </div>
     </div>`;
-
-  const btn = $("syncInbox");
-  if (btn) btn.onclick = async () => {
-    btn.disabled = true;
-    $("syncStatus").textContent = "Checking inbox…";
-    try {
-      const res = await fetch("/api/inbox/sync", {method:"POST"});
-      const d = await res.json();
-      if (d.error) { $("syncStatus").textContent = d.error; btn.disabled = false; return; }
-      $("syncStatus").textContent = `Checked ${d.checked} message(s), found ${d.new_replies} new repl${d.new_replies===1?"y":"ies"}. Refreshing…`;
-      setTimeout(load, 900);
-    } catch(e){ $("syncStatus").textContent = "Sync failed — is the server running?"; btn.disabled = false; }
-  };
 }
 load();
 </script>

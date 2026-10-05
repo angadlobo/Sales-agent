@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings — AgentOS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap">
+{% include "_tailwind_config.html" %}
+<style>{% include "_shell.css" %}</style>
+</head>
+<body class="bg-background text-on-surface antialiased">
+{% include "_sidebar.html" %}
+{% include "_topbar.html" %}
+
+<main class="ml-64 mt-16 min-h-screen">
+<div class="max-w-container-max mx-auto p-margin-desktop">
+  <div class="mb-8">
+    <h2 class="font-display-lg text-display-lg text-on-surface mb-1">Setup &amp; Deployment</h2>
+    <p class="text-secondary max-w-2xl">Configure the AI model and outreach channels. Saved to your local <code>.env</code> file, so it persists across restarts.</p>
+  </div>
+
+  <div class="grid grid-cols-12 gap-6">
+    <div class="col-span-12 lg:col-span-7 space-y-6">
+      <section class="bg-white border border-border-subtle rounded-xl p-6 shadow-sm">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="material-symbols-outlined text-primary bg-primary-fixed/30 p-2 rounded-lg">smart_toy</span>
+          <h3 class="font-headline-md text-headline-md">AI Model</h3>
+        </div>
+        <label class="block font-label-mono text-xs uppercase text-secondary mb-2">Provider</label>
+        <select id="cfg_llm_provider" class="w-full bg-surface-muted border-border-subtle rounded-lg text-body-sm py-2 mb-4">
+          <option value="anthropic">Anthropic (Claude) — recommended</option>
+          <option value="github">GitHub Models (models.github.ai)</option>
+          <option value="openrouter">OpenRouter</option>
+          <option value="openai">OpenAI</option>
+          <option value="custom">Custom (any OpenAI-compatible URL)</option>
+        </select>
+        <div id="anthropicKeyRow" class="mb-4">
+          <label class="block font-label-mono text-xs uppercase text-secondary mb-2">Anthropic API key <span id="keyState" class="text-[10px] px-2 py-0.5 rounded bg-surface-container-highest"></span></label>
+          <input id="cfg_anthropic_key" type="password" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm" placeholder="sk-ant-… (leave blank to keep current)">
+        </div>
+        <div id="llmKeyRow" class="mb-4" style="display:none">
+          <label class="block font-label-mono text-xs uppercase text-secondary mb-2">API key / token <span id="llmKeyState" class="text-[10px] px-2 py-0.5 rounded bg-surface-container-highest"></span></label>
+          <input id="cfg_llm_api_key" type="password" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm" placeholder="leave blank to keep current">
+        </div>
+        <div id="llmBaseUrlRow" class="mb-4" style="display:none">
+          <label class="block font-label-mono text-xs uppercase text-secondary mb-2">Base URL</label>
+          <input id="cfg_llm_base_url" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm" placeholder="https://your-host/v1">
+        </div>
+        <div class="grid grid-cols-2 gap-4 mb-2">
+          <div><label class="block font-label-mono text-xs uppercase text-secondary mb-2">Model</label><input id="cfg_llm_model" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm"></div>
+          <div><label class="block font-label-mono text-xs uppercase text-secondary mb-2">Fast model</label><input id="cfg_llm_fast_model" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm"></div>
+        </div>
+        <p id="llmHint" class="text-xs text-outline italic"></p>
+      </section>
+
+      <section class="bg-white border border-border-subtle rounded-xl p-6 shadow-sm">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="material-symbols-outlined text-ai-accent bg-tertiary-fixed/30 p-2 rounded-lg">mail</span>
+          <h3 class="font-headline-md text-headline-md">Email (SMTP)</h3>
+        </div>
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div><label class="block font-label-mono text-xs uppercase text-secondary mb-2">SMTP host</label><input id="cfg_smtp_host" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm" placeholder="smtp.gmail.com"></div>
+          <div><label class="block font-label-mono text-xs uppercase text-secondary mb-2">Port</label><input id="cfg_smtp_port" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm" placeholder="587"></div>
+        </div>
+        <label class="block font-label-mono text-xs uppercase text-secondary mb-2">Username</label>
+        <input id="cfg_smtp_username" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm mb-4" placeholder="you@company.com">
+        <label class="block font-label-mono text-xs uppercase text-secondary mb-2">Password / app password <span id="smtpPwState" class="text-[10px] px-2 py-0.5 rounded bg-surface-container-highest"></span></label>
+        <input id="cfg_smtp_password" type="password" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm mb-4" placeholder="leave blank to keep current">
+        <div class="grid grid-cols-2 gap-4 mb-2">
+          <div><label class="block font-label-mono text-xs uppercase text-secondary mb-2">From name</label><input id="cfg_smtp_from_name" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm" placeholder="Your Name"></div>
+          <div><label class="block font-label-mono text-xs uppercase text-secondary mb-2">From email</label><input id="cfg_smtp_from_email" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm" placeholder="you@company.com"></div>
+        </div>
+        <p class="text-xs text-outline italic">Any SMTP server works. Gmail needs an app password.</p>
+      </section>
+
+      <section class="bg-white border border-border-subtle rounded-xl p-6 shadow-sm">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="material-symbols-outlined text-secondary bg-surface-container-highest p-2 rounded-lg">call</span>
+          <h3 class="font-headline-md text-headline-md">Voice / Phone</h3>
+        </div>
+        <label class="block font-label-mono text-xs uppercase text-secondary mb-2">Provider</label>
+        <select id="cfg_voice_provider" class="w-full bg-surface-muted border-border-subtle rounded-lg text-body-sm py-2 mb-4">
+          <option value="twilio">Twilio</option>
+          <option value="signalwire">SignalWire</option>
+        </select>
+        <label class="block font-label-mono text-xs uppercase text-secondary mb-2">Account SID</label>
+        <input id="cfg_voice_account_sid" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm mb-4" placeholder="AC…">
+        <label class="block font-label-mono text-xs uppercase text-secondary mb-2">Auth token <span id="voiceTokState" class="text-[10px] px-2 py-0.5 rounded bg-surface-container-highest"></span></label>
+        <input id="cfg_voice_auth_token" type="password" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm mb-4" placeholder="leave blank to keep current">
+        <label class="block font-label-mono text-xs uppercase text-secondary mb-2">From number</label>
+        <input id="cfg_voice_from_number" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm mb-4" placeholder="+15551234567">
+        <div id="signalwireRow" class="mb-4" style="display:none">
+          <label class="block font-label-mono text-xs uppercase text-secondary mb-2">SignalWire space URL</label>
+          <input id="cfg_signalwire_space_url" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm" placeholder="yourspace.signalwire.com">
+        </div>
+        <label class="block font-label-mono text-xs uppercase text-secondary mb-2">Public webhook base URL</label>
+        <input id="cfg_voice_webhook_base_url" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm mb-4" placeholder="https://your-ngrok-id.ngrok.app">
+        <p class="text-xs text-outline italic">Twilio &amp; SignalWire are configured entirely here. The webhook server must be reachable publicly (e.g. <code>ngrok http 5000</code>). Self-hosted telephony (Asterisk / FreeSWITCH) needs a SIP trunk on your own server pointed at the webhook URL.</p>
+      </section>
+
+      <div class="flex justify-end gap-3">
+        <button id="saveSettings" class="py-3 px-6 bg-primary text-white rounded-lg font-bold hover:opacity-90 active:scale-95 transition-all">Save Settings</button>
+      </div>
+      <div id="settingsStatus" class="text-secondary text-body-sm text-right"></div>
+    </div>
+
+    <div class="col-span-12 lg:col-span-5 space-y-6">
+      <section class="bg-surface-container-low border border-border-subtle rounded-xl p-6 shadow-sm overflow-hidden relative">
+        <div class="absolute -right-12 -top-12 opacity-10"><span class="material-symbols-outlined text-[120px]">terminal</span></div>
+        <h3 class="font-headline-md text-headline-md mb-4">Deployment Status</h3>
+        <div id="deployStatus" class="space-y-4 relative z-10">Loading…</div>
+      </section>
+
+      <section class="bg-white border border-border-subtle rounded-xl p-6 shadow-sm">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="material-symbols-outlined text-primary">rocket_launch</span>
+          <h3 class="font-headline-md text-headline-md">Start a Campaign</h3>
+        </div>
+        <p class="text-body-sm text-secondary mb-4">Once your AI model and at least one outreach channel are configured, deploy an agent to describe your product, target an audience, and find real leads.</p>
+        <a href="/campaign" class="w-full block text-center py-3 bg-primary text-white rounded-lg font-bold hover:opacity-90 active:scale-95 transition-all">Deploy New Agent</a>
+      </section>
+    </div>
+  </div>
+</div>
+</main>
+
+<div id="toasts" class="fixed right-4 bottom-4 flex flex-col gap-2 z-50"></div>
+
+<script src="{{ url_for('static', filename='shell.js') }}"></script>
+<script>
+const $ = id => document.getElementById(id);
+
+const LLM_PRESETS = {
+  anthropic:  ["claude-opus-4-8", "claude-haiku-4-5"],
+  github:     ["openai/gpt-4.1", "openai/gpt-4.1-mini"],
+  openrouter: ["openai/gpt-5", "openai/gpt-5-mini"],
+  openai:     ["gpt-5", "gpt-5-mini"],
+  custom:     ["", ""],
+};
+const LLM_HINTS = {
+  anthropic:  "Built-in live web search makes lead discovery work best here. Get a key at console.anthropic.com.",
+  github:     "Free tier with a GitHub PAT (models:read scope) — set it as the token above. No live web search.",
+  openrouter: "One key, hundreds of models (openrouter.ai/keys). Enables OpenRouter's web plugin so discovery still searches the live web.",
+  openai:     "Uses api.openai.com. No live web search: discovery relies on the model's own knowledge.",
+  custom:     "Any OpenAI-compatible /chat/completions endpoint (Groq, Together, Ollama…). No live web search.",
+};
+function updateLlmRows(){
+  const p = $("cfg_llm_provider").value;
+  $("anthropicKeyRow").style.display = p==="anthropic" ? "" : "none";
+  $("llmKeyRow").style.display = p==="anthropic" ? "none" : "";
+  $("llmBaseUrlRow").style.display = p==="custom" ? "" : "none";
+  const preset = LLM_PRESETS[p] || ["", ""];
+  $("cfg_llm_model").placeholder = preset[0] || "model id";
+  $("cfg_llm_fast_model").placeholder = preset[1] || "model id";
+  $("llmHint").textContent = LLM_HINTS[p] || "";
+}
+$("cfg_llm_provider").onchange = updateLlmRows;
+$("cfg_voice_provider").onchange = e => { $("signalwireRow").style.display = e.target.value==="signalwire" ? "" : "none"; };
+
+function pill(ok, yes, no){
+  return `<span class="text-[10px] px-2 py-0.5 rounded font-bold ${ok ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}">${ok ? yes : no}</span>`;
+}
+
+async function loadConfig(){
+  const c = await (await fetch("/api/config")).json();
+  $("keyState").textContent = c.anthropic_key_set ? "set" : "not set";
+  $("keyState").className = "text-[10px] px-2 py-0.5 rounded font-bold " + (c.anthropic_key_set ? "bg-success/10 text-success" : "bg-warning/10 text-warning");
+  $("cfg_llm_provider").value = c.llm.provider || "anthropic";
+  $("llmKeyState").textContent = c.llm.api_key_set ? "set" : "not set";
+  $("llmKeyState").className = "text-[10px] px-2 py-0.5 rounded font-bold " + (c.llm.api_key_set ? "bg-success/10 text-success" : "bg-warning/10 text-warning");
+  $("cfg_llm_base_url").value = c.llm.base_url;
+  $("cfg_llm_model").value = c.llm.model;
+  $("cfg_llm_fast_model").value = c.llm.fast_model;
+  updateLlmRows();
+  $("cfg_llm_model").placeholder = c.llm.model_default;
+  $("cfg_llm_fast_model").placeholder = c.llm.fast_model_default;
+
+  $("cfg_smtp_host").value = c.email.host;
+  $("cfg_smtp_port").value = c.email.port;
+  $("cfg_smtp_username").value = c.email.username;
+  $("cfg_smtp_from_name").value = c.email.from_name;
+  $("cfg_smtp_from_email").value = c.email.from_email;
+  $("smtpPwState").textContent = c.email.password_set ? "saved" : "not set";
+  $("smtpPwState").className = "text-[10px] px-2 py-0.5 rounded font-bold " + (c.email.password_set ? "bg-success/10 text-success" : "bg-surface-container-highest text-secondary");
+
+  $("cfg_voice_provider").value = c.voice.provider || "twilio";
+  $("signalwireRow").style.display = c.voice.provider==="signalwire" ? "" : "none";
+  $("cfg_voice_account_sid").value = "";
+  $("cfg_voice_account_sid").placeholder = c.voice.account_sid || "AC…";
+  $("cfg_voice_from_number").value = c.voice.from_number;
+  $("cfg_signalwire_space_url").value = c.voice.signalwire_space;
+  $("cfg_voice_webhook_base_url").value = c.voice.webhook_base_url;
+  $("voiceTokState").textContent = c.voice.auth_token_set ? "saved" : "not set";
+  $("voiceTokState").className = "text-[10px] px-2 py-0.5 rounded font-bold " + (c.voice.auth_token_set ? "bg-success/10 text-success" : "bg-surface-container-highest text-secondary");
+
+  const llmReady = c.anthropic_key_set || c.llm.api_key_set;
+  const readiness = [llmReady, c.email.is_configured, c.voice.is_configured].filter(Boolean).length;
+  $("deployStatus").innerHTML = `
+    <div class="flex items-center justify-between p-3 bg-white/80 border border-border-subtle rounded-lg">
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined ${llmReady?'text-success':'text-warning'}">key</span>
+        <div><p class="text-sm font-bold">AI Model (${esc(c.llm.provider)})</p><p class="text-[10px] font-label-mono text-secondary">${llmReady ? "Key configured" : "No API key set"}</p></div>
+      </div>
+      ${pill(llmReady, "Active", "Missing key")}
+    </div>
+    <div class="flex items-center justify-between p-3 bg-white/80 border border-border-subtle rounded-lg">
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined ${c.email.is_configured?'text-success':'text-warning'}">mail</span>
+        <div><p class="text-sm font-bold">Email channel</p><p class="text-[10px] font-label-mono text-secondary">${c.email.is_configured ? esc(c.email.from_email||c.email.username) : "SMTP not configured"}</p></div>
+      </div>
+      ${pill(c.email.is_configured, "Active", "Incomplete")}
+    </div>
+    <div class="flex items-center justify-between p-3 bg-white/80 border border-border-subtle rounded-lg">
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined ${c.voice.is_configured?'text-success':'text-warning'}">call</span>
+        <div><p class="text-sm font-bold">Voice channel</p><p class="text-[10px] font-label-mono text-secondary">${c.voice.is_configured ? esc(c.voice.provider) : "Not configured"}</p></div>
+      </div>
+      ${pill(c.voice.is_configured, "Active", "Incomplete")}
+    </div>
+    <div class="pt-4 border-t border-border-subtle/50">
+      <div class="flex justify-between items-center mb-2"><span class="text-xs font-bold text-secondary uppercase">Deployment readiness</span><span class="text-xs font-bold text-primary">${readiness}/3</span></div>
+      <div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden"><div class="bg-primary h-full" style="width:${Math.round(100*readiness/3)}%"></div></div>
+    </div>`;
+}
+function esc(t){ const d=document.createElement("div"); d.textContent=(t==null?"":t); return d.innerHTML; }
+
+$("saveSettings").onclick = async () => {
+  $("settingsStatus").textContent = "Saving…";
+  const body = {
+    anthropic_key: $("cfg_anthropic_key").value,
+    llm_provider: $("cfg_llm_provider").value,
+    llm_api_key: $("cfg_llm_api_key").value,
+    llm_base_url: $("cfg_llm_base_url").value,
+    llm_model: $("cfg_llm_model").value,
+    llm_fast_model: $("cfg_llm_fast_model").value,
+    smtp_host: $("cfg_smtp_host").value, smtp_port: $("cfg_smtp_port").value,
+    smtp_username: $("cfg_smtp_username").value, smtp_password: $("cfg_smtp_password").value,
+    smtp_from_name: $("cfg_smtp_from_name").value, smtp_from_email: $("cfg_smtp_from_email").value,
+    voice_provider: $("cfg_voice_provider").value, voice_account_sid: $("cfg_voice_account_sid").value,
+    voice_auth_token: $("cfg_voice_auth_token").value, voice_from_number: $("cfg_voice_from_number").value,
+    signalwire_space_url: $("cfg_signalwire_space_url").value, voice_webhook_base_url: $("cfg_voice_webhook_base_url").value,
+  };
+  await fetch("/api/config", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  $("cfg_anthropic_key").value = $("cfg_llm_api_key").value = $("cfg_smtp_password").value = $("cfg_voice_auth_token").value = "";
+  $("settingsStatus").textContent = "Saved ✓";
+  toast("Settings saved", "ok");
+  loadConfig();
+  setTimeout(()=>{ $("settingsStatus").textContent=""; }, 2000);
+};
+loadConfig();
+</script>
+</body>
+</html>

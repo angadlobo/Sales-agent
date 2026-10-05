@@ -6,8 +6,10 @@ searches the web for matching businesses, scores how likely each is to buy,
 finds their published contact details, and then drafts and sends a personalized
 email — or places an AI voice call that actually talks to the prospect.
 
-It is powered by **Claude** (`claude-opus-4-8`) and ships in **dry-run mode by
-default**, so you can see exactly what it would do before anything goes out.
+It is powered by **Claude** (`claude-opus-4-8`) by default — and can also run
+on **GitHub Models, OpenRouter, OpenAI, or any OpenAI-compatible endpoint**
+(see [AI providers](#ai-providers)). It ships in **dry-run mode by default**,
+so you can see exactly what it would do before anything goes out.
 
 > ⚠️ **Read [Legal & ethical use](#legal--ethical-use) before contacting anyone.**
 > Cold outreach is regulated. This tool gives you mechanical guardrails, but
@@ -251,7 +253,7 @@ sales_agent/
     selfhosted/        # free stack: Asterisk AudioSocket + Whisper + Piper
   webapp/
     app.py             # web UI backend (dashboard + free browser-voice API)
-    templates/         # index.html (dashboard), talk.html (voice demo)
+    templates/         # dashboard/leads/activity/settings + campaign.html (wizard), talk.html (voice demo)
 examples/run_demo.py
 tests/
 ```
@@ -274,3 +276,43 @@ pytest                 # the compliance tests need no API key or network
 - Models are configurable via `SALES_AGENT_MODEL` (reasoning, default
   `claude-opus-4-8`) and `SALES_AGENT_FAST_MODEL` (cheap classification,
   default `claude-haiku-4-5`).
+
+---
+
+## AI providers
+
+Anthropic is the default, but the agent runs on any OpenAI-compatible
+`/chat/completions` endpoint. Pick one in **Settings → AI model** in the web
+UI, or set env vars:
+
+```bash
+# GitHub Models — free tier with a GitHub PAT (models:read scope)
+LLM_PROVIDER=github
+GITHUB_TOKEN=github_pat_...        # default model: openai/gpt-4.1
+                                   # (gpt-5 needs paid enablement on GitHub)
+
+# OpenRouter — one key, hundreds of models
+LLM_PROVIDER=openrouter
+OPENROUTER_API_KEY=sk-or-...
+
+# OpenAI
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+
+# Anything else that speaks the OpenAI API (Groq, Together, Ollama, …)
+LLM_PROVIDER=custom
+LLM_BASE_URL=http://localhost:11434/v1
+LLM_API_KEY=...                    # SALES_AGENT_MODEL is required here
+```
+
+Override models with `SALES_AGENT_MODEL` / `SALES_AGENT_FAST_MODEL` (e.g.
+`openai/gpt-5-mini` on GitHub Models, `anthropic/claude-opus-4.8` on
+OpenRouter).
+
+**One real difference: live web search.** Lead discovery searches the web at
+runtime. That works on **anthropic** (built-in server-side search) and
+**openrouter** (the agent enables OpenRouter's `web` plugin). On
+**github / openai / custom** there is no live search, so discovery falls back
+to the model's own knowledge — leads can be staler and harder to verify.
+Scoring, email drafting, reply classification, and the call brain work the
+same on every provider.

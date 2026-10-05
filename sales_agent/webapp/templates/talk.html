@@ -3,60 +3,87 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Talk to the Sales Agent</title>
+<title>Talk Demo — AgentOS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap">
+{% include "_tailwind_config.html" %}
 <style>
-  :root { --bg:#0f1217; --card:#171c24; --ink:#e8ebf0; --mut:#8b94a3; --acc:#4f8cff; --ok:#3ecf8e; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
-  header { display:flex; align-items:center; gap:14px; padding:18px 28px; border-bottom:1px solid #232a35; }
-  header h1 { font-size:18px; margin:0; }
-  header a { color:var(--acc); text-decoration:none; margin-left:auto; }
-  main { max-width:760px; margin:0 auto; padding:24px 20px 80px; }
-  .card { background:var(--card); border:1px solid #232a35; border-radius:12px; padding:18px; margin-bottom:18px; }
-  label { display:block; font-size:12px; color:var(--mut); margin:10px 0 4px; }
-  input { width:100%; padding:8px 10px; border-radius:8px; border:1px solid #2c3543; background:#0f141b; color:var(--ink); font:inherit; }
-  .row { display:flex; gap:10px; } .row > div { flex:1; }
-  .controls { display:flex; gap:10px; margin-top:14px; }
-  button { flex:1; padding:12px; border:0; border-radius:8px; font-weight:600; font-size:14px; cursor:pointer; }
-  #start { background:var(--ok); color:#08130d; }
-  #stop  { background:#2c3543; color:var(--ink); }
-  button:disabled { opacity:.4; cursor:not-allowed; }
-  #log { display:flex; flex-direction:column; gap:8px; }
-  .msg { padding:10px 13px; border-radius:12px; max-width:85%; font-size:14px; line-height:1.45; }
-  .agent { background:#1d2a3f; align-self:flex-start; }
-  .you   { background:#243126; align-self:flex-end; }
-  .sys   { color:var(--mut); font-size:12px; align-self:center; }
-  .banner { background:#1d2530; border:1px solid #2c3543; border-radius:8px; padding:10px 12px; font-size:12.5px; color:var(--mut); margin-bottom:16px; }
-  .live { color:var(--ok); }
+{% include "_shell.css" %}
+.msg { padding:10px 14px; border-radius:14px; max-width:85%; font-size:14px; line-height:1.5; }
+.msg.agent { background:#dae2ff; color:#191b22; align-self:flex-start; border-bottom-left-radius:4px; }
+.msg.you   { background:#003b93; color:#ffffff; align-self:flex-end; border-bottom-right-radius:4px; }
+.msg.sys   { color:#737785; font-size:12px; align-self:center; background:none; }
+@keyframes pulse-mic { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+.mic-live { animation:pulse-mic 1.2s ease-in-out infinite; }
 </style>
 </head>
-<body>
-<header>
-  <h1>🎙 Talk to the Sales Agent</h1>
-  <a href="/">🔎 Find leads</a>
-  <a href="/dashboard">📊 Dashboard</a>
-</header>
-<main>
-  <div class="banner">
-    100% free voice demo: your browser does the listening (speech recognition) and the speaking
-    (speech synthesis); Claude does the thinking. No phone provider needed. Works best in
-    <b>Chrome or Edge</b>. This is the exact same conversation brain used for real phone calls —
-    use it to hear and tune your pitch before ever paying for telephony.
+<body class="bg-background text-on-surface font-body-base antialiased">
+{% include "_sidebar.html" %}
+{% include "_topbar.html" %}
+
+<main class="ml-64 mt-16 p-margin-desktop min-h-screen">
+<div class="max-w-3xl mx-auto">
+  <div class="mb-8">
+    <h2 class="font-display-lg text-display-lg text-on-surface mb-1">Talk to the Sales Agent</h2>
+    <p class="text-secondary font-body-base">Hear your pitch out loud before ever paying for telephony.</p>
   </div>
-  <div class="card">
-    <div class="row">
-      <div><label>Your product name</label><input id="product_name" value="Acme CRM"></div>
-      <div><label>Pretend I'm from company…</label><input id="company" value="Smith & Co"></div>
+
+  <div class="bg-surface-muted border border-border-subtle rounded-xl p-4 mb-6 flex items-start gap-3">
+    <span class="material-symbols-outlined text-primary mt-0.5">info</span>
+    <p class="text-body-sm text-on-surface-variant leading-relaxed">
+      100% free voice demo: your browser does the listening (speech recognition) and the speaking
+      (speech synthesis); the AI does the thinking. No phone provider needed. Works best in
+      <b>Chrome or Edge</b>. This is the exact same conversation brain used for real phone calls.
+    </p>
+  </div>
+
+  <div class="bg-white border border-border-subtle rounded-xl p-6 shadow-sm mb-6">
+    <div class="flex items-center gap-3 mb-4">
+      <span class="material-symbols-outlined text-primary bg-primary-fixed/30 p-2 rounded-lg">tune</span>
+      <h3 class="font-headline-md text-headline-md">Call Setup</h3>
     </div>
-    <label>One-line product description</label>
-    <input id="product_description" value="Simple CRM for small law firms that automates client intake">
-    <div class="controls">
-      <button id="start">▶ Start call</button>
-      <button id="stop" disabled>⏹ End call</button>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div>
+        <label class="block font-label-mono text-xs uppercase text-secondary mb-2">Your product name</label>
+        <input id="product_name" value="Acme CRM" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm">
+      </div>
+      <div>
+        <label class="block font-label-mono text-xs uppercase text-secondary mb-2">Pretend I'm from company…</label>
+        <input id="company" value="Smith & Co" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm">
+      </div>
+    </div>
+    <label class="block font-label-mono text-xs uppercase text-secondary mb-2">One-line product description</label>
+    <input id="product_description" value="Simple CRM for small law firms that automates client intake" class="w-full bg-surface-muted border-border-subtle rounded-lg p-3 text-body-sm mb-5">
+    <div class="flex gap-3">
+      <button id="start" class="flex-1 py-3 px-4 bg-success text-white rounded-lg font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+        <span class="material-symbols-outlined text-[20px]">play_arrow</span> Start call
+      </button>
+      <button id="stop" disabled class="flex-1 py-3 px-4 bg-surface-container-high text-on-surface rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-surface-container-highest active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+        <span class="material-symbols-outlined text-[20px]">stop</span> End call
+      </button>
     </div>
   </div>
-  <div class="card"><div id="log"><div class="msg sys">Press “Start call”. The agent speaks first; then just talk back.</div></div></div>
+
+  <div class="bg-white border border-border-subtle rounded-xl overflow-hidden shadow-sm">
+    <div class="px-6 py-4 border-b border-border-subtle bg-surface-muted/50 flex justify-between items-center">
+      <h3 class="font-headline-md text-headline-md">Conversation</h3>
+      <span id="callState" class="font-label-mono text-label-mono text-secondary flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-outline-variant"></span> Idle
+      </span>
+    </div>
+    <div class="p-6">
+      <div id="log" class="flex flex-col gap-3 min-h-[200px] max-h-[50vh] overflow-y-auto">
+        <div class="msg sys">Press "Start call". The agent speaks first; then just talk back.</div>
+      </div>
+    </div>
+  </div>
+</div>
 </main>
+
+<div id="toasts" class="fixed right-4 bottom-4 flex flex-col gap-2 z-50"></div>
+
+<script src="{{ url_for('static', filename='shell.js') }}"></script>
 <script>
 const $ = id => document.getElementById(id);
 const log = $("log");
@@ -64,6 +91,20 @@ let history = [];        // {role, content}
 let recognizing = false;
 let recognition = null;
 let active = false;
+
+function setCallState(state){
+  const el = $("callState");
+  if (state === "live"){
+    el.innerHTML = '<span class="w-2 h-2 rounded-full bg-success animate-pulse"></span> Live';
+    el.className = "font-label-mono text-label-mono text-success flex items-center gap-2";
+  } else if (state === "listening"){
+    el.innerHTML = '<span class="material-symbols-outlined text-[16px] mic-live">mic</span> Listening';
+    el.className = "font-label-mono text-label-mono text-ai-accent flex items-center gap-2";
+  } else {
+    el.innerHTML = '<span class="w-2 h-2 rounded-full bg-outline-variant"></span> Idle';
+    el.className = "font-label-mono text-label-mono text-secondary flex items-center gap-2";
+  }
+}
 
 function addMsg(cls, text) {
   const div = document.createElement("div");
@@ -113,10 +154,12 @@ function listen() {
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
   recognizing = true;
+  setCallState("listening");
   addMsg("sys", "🎤 listening…");
   recognition.onresult = e => {
     const said = e.results[0][0].transcript;
     log.lastChild.remove();          // remove "listening…"
+    setCallState("live");
     addMsg("you", said);
     history.push({role: "user", content: said});
     agentTurn();
@@ -135,6 +178,7 @@ $("start").onclick = async () => {
   active = true;
   $("start").disabled = true;
   $("stop").disabled = false;
+  setCallState("live");
   addMsg("sys", "Connecting…");
   await agentTurn();   // empty history -> agent generates its opener
 };
@@ -145,6 +189,7 @@ function endCall(reason) {
   speechSynthesis.cancel();
   $("start").disabled = false;
   $("stop").disabled = true;
+  setCallState("idle");
   addMsg("sys", reason || "Call ended.");
 }
 $("stop").onclick = () => endCall("You ended the call.");

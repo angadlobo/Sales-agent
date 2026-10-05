@@ -14,10 +14,70 @@ from .models import Product, Targeting
 
 load_dotenv()  # pull .env into os.environ if present
 
-# Defaults follow the claude-api skill guidance: Opus for reasoning,
-# Haiku for cheap, high-volume classification.
-DEFAULT_MODEL = os.getenv("SALES_AGENT_MODEL", "claude-opus-4-8")
-DEFAULT_FAST_MODEL = os.getenv("SALES_AGENT_FAST_MODEL", "claude-haiku-4-5")
+# ── AI provider ─────────────────────────────────────────────────────────────
+# The default brain is Anthropic Claude. Any OpenAI-compatible /chat/completions
+# endpoint also works: GitHub Models, OpenRouter, OpenAI, or a custom base URL
+# (Groq, Together, Ollama, …). Select with LLM_PROVIDER; see .env.example.
+
+# provider -> (reasoning model, cheap/fast model). Anthropic defaults follow
+# the claude-api skill guidance: Opus for reasoning, Haiku for cheap
+# classification.
+_MODEL_PRESETS = {
+    "anthropic": ("claude-opus-4-8", "claude-haiku-4-5"),
+    # gpt-5 is listed in the GitHub Models catalog but rejected on free
+    # personal accounts ("unavailable_model"); gpt-4.1 works everywhere.
+    "github": ("openai/gpt-4.1", "openai/gpt-4.1-mini"),
+    "openrouter": ("openai/gpt-5", "openai/gpt-5-mini"),
+    "openai": ("gpt-5", "gpt-5-mini"),
+}
+
+_PROVIDER_BASE_URLS = {
+    "github": "https://models.github.ai/inference",
+    "openrouter": "https://openrouter.ai/api/v1",
+    "openai": "https://api.openai.com/v1",
+}
+
+# Besides the generic LLM_API_KEY, each provider has a conventional env var.
+_PROVIDER_KEY_ENVS = {
+    "github": ("LLM_API_KEY", "GITHUB_TOKEN"),
+    "openrouter": ("LLM_API_KEY", "OPENROUTER_API_KEY"),
+    "openai": ("LLM_API_KEY", "OPENAI_API_KEY"),
+}
+
+
+def llm_provider() -> str:
+    return os.getenv("LLM_PROVIDER", "anthropic").strip().lower()
+
+
+def llm_base_url() -> Optional[str]:
+    return os.getenv("LLM_BASE_URL") or _PROVIDER_BASE_URLS.get(llm_provider())
+
+
+def llm_api_key() -> Optional[str]:
+    for name in _PROVIDER_KEY_ENVS.get(llm_provider(), ("LLM_API_KEY",)):
+        value = os.getenv(name)
+        if value:
+            return value
+    return None
+
+
+def preset_models() -> tuple[str, str]:
+    return _MODEL_PRESETS.get(llm_provider(), _MODEL_PRESETS["anthropic"])
+
+
+def default_model() -> str:
+    """Provider-aware default, resolved at call time so the settings panel
+    can switch providers without a restart."""
+    return os.getenv("SALES_AGENT_MODEL") or preset_models()[0]
+
+
+def default_fast_model() -> str:
+    return os.getenv("SALES_AGENT_FAST_MODEL") or preset_models()[1]
+
+
+# Import-time snapshots, kept for callers that use them as function defaults.
+DEFAULT_MODEL = default_model()
+DEFAULT_FAST_MODEL = default_fast_model()
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -116,8 +176,8 @@ class Settings:
     product: Product
     targeting: Targeting
     campaign: CampaignConfig
-    model: str = DEFAULT_MODEL
-    fast_model: str = DEFAULT_FAST_MODEL
+    model: str = field(default_factory=default_model)
+    fast_model: str = field(default_factory=default_fast_model)
     dry_run: bool = field(default_factory=lambda: _env_bool("DRY_RUN", True))
     email: EmailConfig = field(default_factory=EmailConfig)
     voice: VoiceConfig = field(default_factory=VoiceConfig)

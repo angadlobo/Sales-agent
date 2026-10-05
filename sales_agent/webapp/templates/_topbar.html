@@ -1,0 +1,25 @@
+<header class="fixed top-0 right-0 left-64 h-16 bg-surface border-b border-border-subtle z-40">
+<div class="flex justify-between items-center px-margin-desktop w-full h-full">
+  <div class="flex items-center flex-1 max-w-md">
+    <div class="relative w-full">
+      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+      <input id="globalSearch" class="w-full bg-surface-container-low border-none focus:ring-1 focus:ring-primary rounded-lg py-2 pl-10 pr-4 text-body-sm" placeholder="Search leads, companies…" type="text">
+    </div>
+  </div>
+  <div class="flex items-center space-x-6">
+    <div class="flex items-center space-x-4">
+      <button title="Notifications" class="text-secondary hover:text-primary transition-opacity scale-95 active:scale-90">
+        <span class="material-symbols-outlined">notifications</span>
+      </button>
+      <button title="Analytics" onclick="window.location='/dashboard'" class="text-secondary hover:text-primary transition-opacity scale-95 active:scale-90">
+        <span class="material-symbols-outlined">analytics</span>
+      </button>
+    </div>
+    <div class="h-6 w-px bg-border-subtle"></div>
+    <div id="agentStatusPill" class="flex items-center space-x-2 bg-surface-container text-secondary px-3 py-1.5 rounded-full border border-border-subtle">
+      <span class="w-2 h-2 rounded-full bg-secondary"></span>
+      <span class="font-label-mono text-label-mono font-bold">Checking…</span>
+    </div>
+  </div>
+</div>
+</header>
